@@ -1,13 +1,14 @@
 import "server-only";
 import { randomUUID, randomInt } from "node:crypto";
 import { hasDatabase, query } from "./db";
-import type { Answers, Point } from "./scoring";
+import { MODES, type Answers, type Mode, type Point } from "./scoring";
 
 export type Session = {
   id: string;
   code: string;
   secret: string;
   title: string;
+  mode: Mode;
   createdAt: string;
   closedAt: string | null;
 };
@@ -17,7 +18,8 @@ export type StoredResponse = {
   sessionId: string;
   label: string | null;
   answers: Answers;
-  today: Point;
+  /** Null in a tomorrow-only session. */
+  today: Point | null;
   target: Point;
   createdAt: string;
 };
@@ -77,6 +79,7 @@ type SessionRow = {
   code: string;
   secret: string;
   title: string;
+  mode: string;
   created_at: Date | string;
   closed_at: Date | string | null;
 };
@@ -89,11 +92,12 @@ const toSession = (r: SessionRow): Session => ({
   code: r.code,
   secret: r.secret,
   title: r.title,
+  mode: (MODES as string[]).includes(r.mode) ? (r.mode as Mode) : "both",
   createdAt: iso(r.created_at)!,
   closedAt: iso(r.closed_at),
 });
 
-export async function createSession(title: string): Promise<Session> {
+export async function createSession(title: string, mode: Mode = "both"): Promise<Session> {
   const clean = title.trim().slice(0, 80) || "Cultural Compass";
 
   if (!hasDatabase()) {
@@ -105,6 +109,7 @@ export async function createSession(title: string): Promise<Session> {
       code,
       secret: makeSecret(),
       title: clean,
+      mode,
       createdAt: new Date().toISOString(),
       closedAt: null,
     };
@@ -115,11 +120,11 @@ export async function createSession(title: string): Promise<Session> {
   // Four digits over ~one session at a time; retry is a formality.
   for (let attempt = 0; attempt < 8; attempt++) {
     const rows = await query<SessionRow>(
-      `INSERT INTO sessions (code, secret, title)
-       VALUES ($1, $2, $3)
+      `INSERT INTO sessions (code, secret, title, mode)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (code) DO NOTHING
-       RETURNING id, code, secret, title, created_at, closed_at`,
-      [makeCode(), makeSecret(), clean],
+       RETURNING id, code, secret, title, mode, created_at, closed_at`,
+      [makeCode(), makeSecret(), clean, mode],
     );
     if (rows.length) return toSession(rows[0]);
   }
@@ -134,7 +139,7 @@ export async function getSessionByCode(code: string): Promise<Session | null> {
     return memory().sessions.find((s) => s.code === wanted) ?? null;
   }
   const rows = await query<SessionRow>(
-    `SELECT id, code, secret, title, created_at, closed_at FROM sessions WHERE code = $1`,
+    `SELECT id, code, secret, title, mode, created_at, closed_at FROM sessions WHERE code = $1`,
     [wanted],
   );
   return rows.length ? toSession(rows[0]) : null;
@@ -156,8 +161,8 @@ type ResponseRow = {
   session_id: string;
   label: string | null;
   answers: Answers;
-  today_x: number;
-  today_y: number;
+  today_x: number | null;
+  today_y: number | null;
   target_x: number;
   target_y: number;
   created_at: Date | string;
@@ -168,7 +173,7 @@ const toResponse = (r: ResponseRow): StoredResponse => ({
   sessionId: r.session_id,
   label: r.label,
   answers: r.answers,
-  today: { x: r.today_x, y: r.today_y },
+  today: r.today_x === null || r.today_y === null ? null : { x: r.today_x, y: r.today_y },
   target: { x: r.target_x, y: r.target_y },
   createdAt: iso(r.created_at)!,
 });
@@ -177,7 +182,7 @@ export async function addResponse(input: {
   sessionId: string;
   label: string | null;
   answers: Answers;
-  today: Point;
+  today: Point | null;
   target: Point;
 }): Promise<StoredResponse> {
   const label = input.label?.trim().slice(0, LABEL_MAX) || null;
@@ -204,8 +209,8 @@ export async function addResponse(input: {
       input.sessionId,
       label,
       JSON.stringify(input.answers),
-      input.today.x,
-      input.today.y,
+      input.today?.x ?? null,
+      input.today?.y ?? null,
       input.target.x,
       input.target.y,
     ],
@@ -268,7 +273,7 @@ export async function listSessions(): Promise<SessionSummary[]> {
       }));
   }
   const rows = await query<SessionRow & { response_count: number }>(
-    `SELECT s.id, s.code, s.secret, s.title, s.created_at, s.closed_at,
+    `SELECT s.id, s.code, s.secret, s.title, s.mode, s.created_at, s.closed_at,
             (SELECT count(*) FROM responses r WHERE r.session_id = s.id)::int AS response_count
        FROM sessions s
       ORDER BY s.created_at DESC`,

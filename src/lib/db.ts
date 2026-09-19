@@ -80,10 +80,45 @@ export function pool(): Pool {
   return globalThis.__ccPool;
 }
 
+/**
+ * Brings a database created by an earlier version up to date, once per
+ * process. Deploying code that writes a column the database lacks would take
+ * session creation down, and a manual migration is exactly the step that gets
+ * forgotten. It reads the catalogue first and only issues DDL when something
+ * is actually missing, so a current database pays one cheap SELECT and takes
+ * no lock. `IF EXISTS` keeps it harmless on a database never migrated at all,
+ * which /api/health then reports as such.
+ */
+let upgraded: Promise<void> | undefined;
+
+async function upgrade(p: Pool): Promise<void> {
+  const { rows } = await p.query<{ has_mode: boolean; today_nullable: string | null }>(
+    `SELECT
+       EXISTS (SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'sessions' AND column_name = 'mode') AS has_mode,
+       (SELECT is_nullable FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'responses' AND column_name = 'today_x') AS today_nullable`,
+  );
+  const { has_mode, today_nullable } = rows[0];
+  if (!has_mode) {
+    await p.query(`ALTER TABLE IF EXISTS sessions ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'both'`);
+  }
+  if (today_nullable === "NO") {
+    await p.query(`ALTER TABLE IF EXISTS responses ALTER COLUMN today_x DROP NOT NULL`);
+    await p.query(`ALTER TABLE IF EXISTS responses ALTER COLUMN today_y DROP NOT NULL`);
+  }
+}
+
 export async function query<T extends Record<string, unknown>>(
   text: string,
   params: unknown[] = [],
 ): Promise<T[]> {
-  const res = await pool().query(text, params as never[]);
+  const p = pool();
+  upgraded ??= upgrade(p).catch((err) => {
+    upgraded = undefined; // retry on the next query rather than stay broken
+    throw err;
+  });
+  await upgraded;
+  const res = await p.query(text, params as never[]);
   return res.rows as T[];
 }

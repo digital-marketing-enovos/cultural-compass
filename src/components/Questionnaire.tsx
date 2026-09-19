@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Item, type Kind, type Raw } from "@/lib/items";
-import type { Answers, Point } from "@/lib/scoring";
+import type { Answers, Mode, Point } from "@/lib/scoring";
 import { C, FB } from "@/lib/theme";
 import { ItemCard } from "./ItemCard";
 import { PersonalResult } from "./PersonalResult";
@@ -10,7 +10,7 @@ import { PersonalResult } from "./PersonalResult";
 const LABEL_MAX = 12;
 
 type Draft = { today: Record<number, Raw>; target: Record<number, Raw>; label: string };
-type Submitted = { id: string; today: Point; target: Point };
+type Submitted = { id: string; today: Point | null; target: Point };
 
 const draftKey = (code: string) => `cc:draft:${code}`;
 const doneKey = (code: string) => `cc:response:${code}`;
@@ -38,12 +38,16 @@ export function Questionnaire({
   code,
   closed,
   items,
+  mode,
 }: {
   code: string;
   closed: boolean;
   /** The twelve items, already in display order, wording resolved server-side. */
   items: Item[];
+  /** `target`: tomorrow only — one row per card, twelve positions instead of 24. */
+  mode: Mode;
 }) {
+  const both = mode === "both";
   // `null` while sessionStorage is being read — avoids a flash of empty form.
   const [draft, setDraft] = useState<Draft | null>(null);
   const [submitted, setSubmitted] = useState<Submitted | null>(null);
@@ -72,18 +76,20 @@ export function Questionnaire({
     [update],
   );
 
-  const total = items.length * 2;
-  const done = draft ? Object.keys(draft.today).length + Object.keys(draft.target).length : 0;
+  const total = items.length * (both ? 2 : 1);
+  const done = draft
+    ? Object.keys(draft.target).length + (both ? Object.keys(draft.today).length : 0)
+    : 0;
   const pct = (done / total) * 100;
   const complete = done === total;
 
   const firstUnanswered = useMemo(() => {
     if (!draft) return null;
     const idx = items.findIndex(
-      (i) => draft.today[i.id] === undefined || draft.target[i.id] === undefined,
+      (i) => draft.target[i.id] === undefined || (both && draft.today[i.id] === undefined),
     );
     return idx < 0 ? null : items[idx].id;
-  }, [draft, items]);
+  }, [draft, items, both]);
 
   async function submit() {
     if (!draft || !complete || sending) return;
@@ -92,7 +98,9 @@ export function Questionnaire({
 
     const answers: Answers = {};
     for (const item of items) {
-      answers[String(item.id)] = { today: draft.today[item.id], target: draft.target[item.id] };
+      answers[String(item.id)] = both
+        ? { today: draft.today[item.id], target: draft.target[item.id] }
+        : { target: draft.target[item.id] };
     }
 
     try {
@@ -103,15 +111,15 @@ export function Questionnaire({
       });
       const body = (await res.json().catch(() => ({}))) as {
         id?: string;
-        today?: Point;
+        today?: Point | null;
         target?: Point;
         error?: string;
       };
-      if (!res.ok || !body.id || !body.today || !body.target) {
+      if (!res.ok || !body.id || !body.target || (both && !body.today)) {
         setError(body.error ?? "Could not send your answers. Check your connection and try again.");
         return;
       }
-      const saved: Submitted = { id: body.id, today: body.today, target: body.target };
+      const saved: Submitted = { id: body.id, today: body.today ?? null, target: body.target };
       writeStore(doneKey(code), saved);
       setSubmitted(saved);
       window.scrollTo({ top: 0 });
@@ -183,10 +191,19 @@ export function Questionnaire({
         }}
       >
         <p style={{ fontSize: "13.5px", color: C.t2, lineHeight: 1.7, margin: 0 }}>
-          Twelve trade-offs. Both options are defensible — there is no right answer, only a priority.
-          Position yourself <strong style={{ color: C.text }}>twice</strong> on each: where Enovos stands{" "}
-          <strong style={{ color: C.text }}>today</strong>, and where Enovos must stand{" "}
-          <strong style={{ color: C.text }}>tomorrow</strong> for NEXT to succeed.
+          Twelve trade-offs. Both options are defensible — there is no right answer, only a priority.{" "}
+          {both ? (
+            <>
+              Position yourself <strong style={{ color: C.text }}>twice</strong> on each: where Enovos
+              stands <strong style={{ color: C.text }}>today</strong>, and where Enovos must stand{" "}
+              <strong style={{ color: C.text }}>tomorrow</strong> for NEXT to succeed.
+            </>
+          ) : (
+            <>
+              Position yourself on each: where Enovos must stand{" "}
+              <strong style={{ color: C.text }}>tomorrow</strong> for NEXT to succeed.
+            </>
+          )}
         </p>
       </div>
 
@@ -198,6 +215,7 @@ export function Questionnaire({
             today={draft.today[item.id]}
             target={draft.target[item.id]}
             onAnswer={onAnswer}
+            mode={mode}
           />
         </div>
       ))}

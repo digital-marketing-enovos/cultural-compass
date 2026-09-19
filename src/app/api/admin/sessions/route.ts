@@ -18,6 +18,7 @@ export async function GET(req: Request) {
       code: s.code,
       secret: s.secret,
       title: s.title,
+      mode: s.mode,
       createdAt: s.createdAt,
       closedAt: s.closedAt,
       responseCount: s.responseCount,

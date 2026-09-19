@@ -24,6 +24,7 @@ export default async function SessionsPage({
         code: s.code,
         secret: s.secret,
         title: s.title,
+        mode: s.mode,
         createdAt: s.createdAt,
         closedAt: s.closedAt,
         responseCount: s.responseCount,

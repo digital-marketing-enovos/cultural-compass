@@ -55,10 +55,29 @@ never the connection string or a driver error.
 2. Project `/s/[code]/present`. The count updates every 3 seconds.
 3. Open `/s/[code]/results?k=...` on the facilitator laptop. It opens on
    **Individual · Today** and polls every 3 seconds.
-4. Drive the debrief with the two controls. `Aggregate` asks for confirmation the
-   first time, on purpose — a centroid on a scattered cloud is an average, not a
-   consensus.
+4. Drive the debrief with the two controls.
 5. `Close session` when the room is done. `Export CSV` for the raw responses.
+
+## Tomorrow-only sessions
+
+The **Tomorrow only** switch at session creation asks participants for one
+position per item — where Enovos must stand tomorrow — instead of two. Twelve
+answers instead of 24.
+
+The session's `mode` (`both` or `target`) is fixed at creation and decides
+everything downstream, on the server: a tomorrow-only session refuses a today
+value outright rather than dropping it, and a regular session refuses a
+tomorrow-only payload. `today_x`/`today_y` are stored as null.
+
+On the results screen a tomorrow-only session keeps Individual / Aggregate but
+has no *What is shown* selector — there is only Tomorrow to show — and only the
+*Spread on tomorrow* read-out, since the other three need a today position.
+The CSV keeps the same 31 columns, with the today ones empty.
+
+Databases created before this existed are upgraded by the app on first use
+(`src/lib/db.ts`): it reads the catalogue, and only if something is missing adds
+the `mode` column and relaxes `today_x`/`today_y` to nullable. `npm run
+db:migrate` applies the same changes.
 
 ## How scoring works
 

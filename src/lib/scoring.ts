@@ -3,8 +3,15 @@ import { ITEMS, RAW_VALUES, type Axis, type Item, type Raw, type ZoneKey } from 
 export type Point = { x: number; y: number };
 /** Partial answers, keyed by item id — used while the questionnaire is in progress. */
 export type PartialAnswers = Record<number, Raw | undefined>;
-/** The persisted shape: every item id → both sides. */
-export type AnswerPair = { today: Raw; target: Raw };
+/**
+ * What a session asks for. `both` is the full exercise — where Enovos stands
+ * today and where it must stand tomorrow. `target` asks for tomorrow only.
+ */
+export type Mode = "both" | "target";
+export const MODES: Mode[] = ["both", "target"];
+
+/** The persisted shape: every item id → its answers. `today` is absent in `target` mode. */
+export type AnswerPair = { today?: Raw; target: Raw };
 export type Answers = Record<string, AnswerPair>;
 
 /**
@@ -44,14 +51,20 @@ export function computePoint(answers: PartialAnswers): Point {
   return { x, y };
 }
 
-/** Both coordinates for one submission. */
-export function computeCoords(answers: Answers): { today: Point; target: Point } {
+/** The coordinates for one submission. `today` is null in `target` mode. */
+export function computeCoords(
+  answers: Answers,
+  mode: Mode = "both",
+): { today: Point | null; target: Point } {
   const side = (kind: "today" | "target"): PartialAnswers => {
     const out: PartialAnswers = {};
     for (const item of ITEMS) out[item.id] = answers[String(item.id)]?.[kind];
     return out;
   };
-  return { today: computePoint(side("today")), target: computePoint(side("target")) };
+  return {
+    today: mode === "both" ? computePoint(side("today")) : null,
+    target: computePoint(side("target")),
+  };
 }
 
 export function getZone(x: number | null, y: number | null): ZoneKey | null {
@@ -74,7 +87,12 @@ export type ParseResult =
   | { ok: true; answers: Answers }
   | { ok: false; error: string };
 
-export function parseAnswers(input: unknown): ParseResult {
+/**
+ * In `both` mode all 24 values are required. In `target` mode the 12 tomorrow
+ * values are required and a today value is refused rather than ignored, so a
+ * tomorrow-only session can never end up holding half-answered today data.
+ */
+export function parseAnswers(input: unknown, mode: Mode = "both"): ParseResult {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     return { ok: false, error: "answers must be an object" };
   }
@@ -88,9 +106,14 @@ export function parseAnswers(input: unknown): ParseResult {
       return { ok: false, error: `missing answer for item ${key}` };
     }
     const { today, target } = pair as Record<string, unknown>;
-    if (!isRaw(today)) return { ok: false, error: `item ${key}: invalid "today" value` };
     if (!isRaw(target)) return { ok: false, error: `item ${key}: invalid "target" value` };
-    answers[key] = { today, target };
+    if (mode === "target") {
+      if (today !== undefined) return { ok: false, error: `item ${key}: this session does not ask about today` };
+      answers[key] = { target };
+    } else {
+      if (!isRaw(today)) return { ok: false, error: `item ${key}: invalid "today" value` };
+      answers[key] = { today, target };
+    }
   }
 
   const extra = Object.keys(src).filter((k) => !(k in answers));
@@ -101,47 +124,67 @@ export function parseAnswers(input: unknown): ParseResult {
 
 // ─── GROUP STATISTICS ──────────────────────────────────────────
 
-export type GroupRow = { today: Point; target: Point };
+export type GroupRow = { today: Point | null; target: Point };
 
+/**
+ * Everything that needs a today position — its centroid and spread, and the
+ * change vectors — is null in a tomorrow-only session rather than a
+ * meaningless zero.
+ */
 export type GroupStats = {
   n: number;
   /** Centroid of the today marks. */
-  centroidToday: Point;
+  centroidToday: Point | null;
   /** Centroid of the tomorrow marks. */
   centroidTarget: Point;
   /** Mean euclidean distance from the today centroid. */
-  spreadToday: number;
+  spreadToday: number | null;
   /** Mean euclidean distance from the tomorrow centroid. */
   spreadTarget: number;
   /** Mean length of the individual change vectors. */
-  meanMagnitude: number;
+  meanMagnitude: number | null;
   /** Mean cosine between each individual vector and the group mean vector, or null. */
   coherence: number | null;
 };
+
+type Paired = { today: Point; target: Point };
 
 export function groupStats(rows: GroupRow[]): GroupStats | null {
   const n = rows.length;
   if (!n) return null;
 
-  const mean = (pick: (r: GroupRow) => number) => rows.reduce((a, r) => a + pick(r), 0) / n;
-  const centroidToday = { x: mean((r) => r.today.x), y: mean((r) => r.today.y) };
-  const centroidTarget = { x: mean((r) => r.target.x), y: mean((r) => r.target.y) };
+  const avg = <T>(list: T[], pick: (r: T) => number) => list.reduce((a, r) => a + pick(r), 0) / list.length;
 
-  const spreadToday = mean((r) => Math.hypot(r.today.x - centroidToday.x, r.today.y - centroidToday.y));
-  const spreadTarget = mean((r) => Math.hypot(r.target.x - centroidTarget.x, r.target.y - centroidTarget.y));
-  const meanMagnitude = mean((r) => Math.hypot(r.target.x - r.today.x, r.target.y - r.today.y));
+  const centroidTarget = { x: avg(rows, (r) => r.target.x), y: avg(rows, (r) => r.target.y) };
+  const spreadTarget = avg(rows, (r) => Math.hypot(r.target.x - centroidTarget.x, r.target.y - centroidTarget.y));
+
+  const paired = rows.filter((r): r is Paired => r.today !== null);
+  if (!paired.length) {
+    return {
+      n,
+      centroidToday: null,
+      centroidTarget,
+      spreadToday: null,
+      spreadTarget,
+      meanMagnitude: null,
+      coherence: null,
+    };
+  }
+
+  const centroidToday = { x: avg(paired, (r) => r.today.x), y: avg(paired, (r) => r.today.y) };
+  const spreadToday = avg(paired, (r) => Math.hypot(r.today.x - centroidToday.x, r.today.y - centroidToday.y));
+  const meanMagnitude = avg(paired, (r) => Math.hypot(r.target.x - r.today.x, r.target.y - r.today.y));
 
   const mv = { x: centroidTarget.x - centroidToday.x, y: centroidTarget.y - centroidToday.y };
   const mvn = Math.hypot(mv.x, mv.y);
   let coherence: number | null = null;
   if (mvn > 0.05) {
-    coherence =
-      rows.reduce((a, r) => {
-        const vx = r.target.x - r.today.x;
-        const vy = r.target.y - r.today.y;
-        const len = Math.hypot(vx, vy);
-        return a + (len < 0.05 ? 0 : (vx * mv.x + vy * mv.y) / (len * mvn));
-      }, 0) / n;
+    coherence = avg(paired, (r) => {
+      const vx = r.target.x - r.today.x;
+      const vy = r.target.y - r.today.y;
+      const len = Math.hypot(vx, vy);
+      return len < 0.05 ? 0 : (vx * mv.x + vy * mv.y) / (len * mvn);
+    });
   }
 
   return { n, centroidToday, centroidTarget, spreadToday, spreadTarget, meanMagnitude, coherence };

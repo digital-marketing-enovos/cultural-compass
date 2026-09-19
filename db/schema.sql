@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   code       text UNIQUE NOT NULL,
   secret     text NOT NULL,
   title      text NOT NULL,
+  mode       text NOT NULL DEFAULT 'both',  -- 'both' | 'target' (tomorrow only)
   created_at timestamptz NOT NULL DEFAULT now(),
   closed_at  timestamptz
 );
@@ -15,8 +16,8 @@ CREATE TABLE IF NOT EXISTS responses (
   session_id uuid NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   label      text,
   answers    jsonb NOT NULL,
-  today_x    real NOT NULL,
-  today_y    real NOT NULL,
+  today_x    real,                           -- null in a tomorrow-only session
+  today_y    real,
   target_x   real NOT NULL,
   target_y   real NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
@@ -35,3 +36,9 @@ CREATE TABLE IF NOT EXISTS item_texts (
   high       text NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Upgrades for databases created before tomorrow-only sessions existed.
+-- The app applies the same two changes itself on first use (src/lib/db.ts).
+ALTER TABLE sessions  ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'both';
+ALTER TABLE responses ALTER COLUMN today_x DROP NOT NULL;
+ALTER TABLE responses ALTER COLUMN today_y DROP NOT NULL;

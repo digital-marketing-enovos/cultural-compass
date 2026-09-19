@@ -20,7 +20,8 @@ export async function POST(req: Request, ctx: Ctx) {
     return json({ error: "invalid JSON" }, 400);
   }
 
-  const parsed = parseAnswers(body?.answers);
+  // The session decides what is asked, never the phone.
+  const parsed = parseAnswers(body?.answers, session.mode);
   if (!parsed.ok) return json({ error: parsed.error }, 400);
 
   if (body.label !== undefined && body.label !== null && typeof body.label !== "string") {
@@ -29,7 +30,7 @@ export async function POST(req: Request, ctx: Ctx) {
   const label =
     typeof body.label === "string" ? body.label.trim().slice(0, LABEL_MAX) || null : null;
 
-  const { today, target } = computeCoords(parsed.answers);
+  const { today, target } = computeCoords(parsed.answers, session.mode);
   const saved = await addResponse({
     sessionId: session.id,
     label,

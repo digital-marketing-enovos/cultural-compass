@@ -4,7 +4,8 @@ import { useState } from "react";
 import { C, FB, FM } from "@/lib/theme";
 import { Shell } from "@/components/Shell";
 
-type Created = { code: string; secret: string; title: string };
+type Mode = "both" | "target";
+type Created = { code: string; secret: string; title: string; mode: Mode };
 
 const card = {
   background: C.surface,
@@ -25,6 +26,7 @@ const label = {
 
 export default function FacilitatorHome() {
   const [title, setTitle] = useState("EMC — Cultural Compass");
+  const [tomorrowOnly, setTomorrowOnly] = useState(false);
   const [session, setSession] = useState<Created | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,14 +38,19 @@ export default function FacilitatorHome() {
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title }),
+        body: JSON.stringify({ title, mode: tomorrowOnly ? "target" : "both" }),
       });
       const body = (await res.json().catch(() => ({}))) as Partial<Created> & { error?: string };
       if (!res.ok || !body.code || !body.secret) {
         setError(body.error ?? "Could not create the session.");
         return;
       }
-      setSession({ code: body.code, secret: body.secret, title: body.title ?? title });
+      setSession({
+        code: body.code,
+        secret: body.secret,
+        title: body.title ?? title,
+        mode: body.mode ?? (tomorrowOnly ? "target" : "both"),
+      });
     } catch {
       setError("Could not create the session.");
     } finally {
@@ -73,6 +80,12 @@ export default function FacilitatorHome() {
             background: C.bg,
             boxSizing: "border-box",
           }}
+        />
+        <Toggle
+          on={tomorrowOnly}
+          onChange={setTomorrowOnly}
+          label="Tomorrow only"
+          hint="Participants only say where Enovos must stand tomorrow — 12 answers instead of 24. The results screen then shows Tomorrow, with no Today view and no movement."
         />
         {error && (
           <p role="alert" style={{ fontSize: "13px", color: C.fire, margin: "12px 0 0" }}>
@@ -130,8 +143,21 @@ function CreatedPanel({ session }: { session: Created }) {
 
       <div style={card}>
         <div style={label}>Session code</div>
-        <div style={{ fontFamily: FM, fontSize: "32px", color: C.text, letterSpacing: "0.06em" }}>
-          {session.code}
+        <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+          <span style={{ fontFamily: FM, fontSize: "32px", color: C.text, letterSpacing: "0.06em" }}>
+            {session.code}
+          </span>
+          <span
+            style={{
+              fontSize: "12px",
+              color: session.mode === "target" ? C.accent : C.t2,
+              border: `1px solid ${session.mode === "target" ? C.accent + "66" : C.border}`,
+              borderRadius: "999px",
+              padding: "3px 11px",
+            }}
+          >
+            {session.mode === "target" ? "Tomorrow only" : "Today and tomorrow"}
+          </span>
         </div>
       </div>
 
@@ -194,5 +220,75 @@ function AdminLinks() {
         Past sessions
       </a>
     </div>
+  );
+}
+
+/** An on/off switch in the page's own idiom: orange when on, a real button underneath. */
+function Toggle({
+  on,
+  onChange,
+  label: text,
+  hint,
+}: {
+  on: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "14px",
+        width: "100%",
+        marginTop: "16px",
+        padding: "14px 16px",
+        borderRadius: "10px",
+        border: `1px solid ${on ? C.accent + "66" : C.border}`,
+        background: on ? C.accent + "0D" : C.bg,
+        textAlign: "left",
+        cursor: "pointer",
+        fontFamily: FB,
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          flexShrink: 0,
+          width: "40px",
+          height: "24px",
+          marginTop: "1px",
+          borderRadius: "999px",
+          background: on ? C.accent : C.border,
+          position: "relative",
+          transition: "background .15s",
+        }}
+      >
+        <span
+          style={{
+            position: "absolute",
+            top: "3px",
+            left: on ? "19px" : "3px",
+            width: "18px",
+            height: "18px",
+            borderRadius: "50%",
+            background: "#fff",
+            boxShadow: "0 1px 2px rgba(0,0,0,.2)",
+            transition: "left .15s",
+          }}
+        />
+      </span>
+      <span>
+        <span style={{ display: "block", fontSize: "15px", fontWeight: 600, color: C.text }}>{text}</span>
+        <span style={{ display: "block", fontSize: "13px", color: C.t2, lineHeight: 1.55, marginTop: "3px" }}>
+          {hint}
+        </span>
+      </span>
+    </button>
   );
 }

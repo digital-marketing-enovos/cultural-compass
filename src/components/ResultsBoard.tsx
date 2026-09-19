@@ -5,11 +5,11 @@ import { AxisBar } from "./AxisBar";
 import { Compass, type Dot, type Vector } from "./Compass";
 import { Segmented } from "./Segmented";
 import { WORLDS } from "@/lib/items";
-import { getZone, groupStats, readSpread, type Point } from "@/lib/scoring";
+import { getZone, groupStats, readSpread, type Mode, type Point } from "@/lib/scoring";
 import { C, DISPLAY_TRACKING, DISPLAY_WEIGHT, FB, FD, FM } from "@/lib/theme";
 import { usePoll } from "@/lib/usePoll";
 
-type Row = { id: string; label: string | null; today: Point; target: Point; createdAt: string };
+type Row = { id: string; label: string | null; today: Point | null; target: Point; createdAt: string };
 type Payload = { closed: boolean; count: number; responses: Row[] };
 
 type Who = "individual" | "aggregate";
@@ -32,19 +32,20 @@ export function ResultsBoard({
   code,
   secret,
   title,
+  mode,
 }: {
   code: string;
   secret: string;
   title: string;
+  /** `target`: tomorrow-only session — there is nothing to show for Today, nor any movement. */
+  mode: Mode;
 }) {
+  const both = mode === "both";
   const base = `/api/s/${encodeURIComponent(code)}`;
   const { data, status, setData } = usePoll<Payload>(`${base}/results?k=${encodeURIComponent(secret)}`);
 
   const [who, setWho] = useState<Who>("individual");
-  const [what, setWhat] = useState<What>("today");
-  // The aggregate is one deliberate click away, never an accidental one.
-  const [aggregateUnlocked, setAggregateUnlocked] = useState(false);
-  const [askAggregate, setAskAggregate] = useState(false);
+  const [what, setWhat] = useState<What>(both ? "today" : "tomorrow");
   const [closing, setClosing] = useState(false);
 
   const rows = data?.responses ?? [];
@@ -60,32 +61,25 @@ export function ResultsBoard({
 
     if (who === "individual") {
       for (const r of rows) {
-        if (wantToday)
+        if (wantToday && r.today)
           dots.push({ x: r.today.x, y: r.today.y, kind: "today", label: r.label ?? undefined });
         if (wantTarget)
           dots.push({ x: r.target.x, y: r.target.y, kind: "target", label: r.label ?? undefined });
       }
       if (what === "both") {
         for (const r of rows) {
-          vectors.push({ x1: r.today.x, y1: r.today.y, x2: r.target.x, y2: r.target.y });
+          if (r.today) vectors.push({ x1: r.today.x, y1: r.today.y, x2: r.target.x, y2: r.target.y });
         }
         // No group-mean arrow here on purpose: this view is the fan of
-        // individual agendas, and a mean is an aggregate — which the Aggregate
-        // control gates behind a deliberate click.
+        // individual agendas, and a mean belongs to the Aggregate view.
       }
     } else {
-      if (wantToday)
-        dots.push({ x: stats.centroidToday.x, y: stats.centroidToday.y, kind: "today", bold: true });
+      const ct = stats.centroidToday;
+      if (wantToday && ct) dots.push({ x: ct.x, y: ct.y, kind: "today", bold: true });
       if (wantTarget)
         dots.push({ x: stats.centroidTarget.x, y: stats.centroidTarget.y, kind: "target", bold: true });
-      if (what === "both") {
-        vectors.push({
-          x1: stats.centroidToday.x,
-          y1: stats.centroidToday.y,
-          x2: stats.centroidTarget.x,
-          y2: stats.centroidTarget.y,
-          bold: true,
-        });
+      if (what === "both" && ct) {
+        vectors.push({ x1: ct.x, y1: ct.y, x2: stats.centroidTarget.x, y2: stats.centroidTarget.y, bold: true });
       }
     }
     return { dots, vectors };
@@ -93,14 +87,6 @@ export function ResultsBoard({
 
   const zone = stats ? getZone(stats.centroidTarget.x, stats.centroidTarget.y) : null;
   const world = zone ? WORLDS[zone] : null;
-
-  function chooseWho(next: Who) {
-    if (next === "aggregate" && !aggregateUnlocked) {
-      setAskAggregate(true);
-      return;
-    }
-    setWho(next);
-  }
 
   async function close() {
     if (!window.confirm("Close the session? No further responses will be accepted.")) return;
@@ -202,7 +188,7 @@ export function ResultsBoard({
           <Segmented<Who>
             label="Whose data"
             value={who}
-            onChange={chooseWho}
+            onChange={setWho}
             scale={1.25}
             className="seg"
             options={[
@@ -210,77 +196,26 @@ export function ResultsBoard({
               ["aggregate", "Aggregate"],
             ]}
           />
-          <Segmented<What>
-            label="What is shown"
-            value={what}
-            onChange={setWhat}
-            scale={1.25}
-            className="seg"
-            options={[
-              ["today", "Today"],
-              ["tomorrow", "Tomorrow"],
-              ["both", "Both + movement"],
-            ]}
-          />
+          {/* A tomorrow-only session has a single thing to show, so no selector:
+              a one-option control would be a button that does nothing. */}
+          {both && (
+            <Segmented<What>
+              label="What is shown"
+              value={what}
+              onChange={setWhat}
+              scale={1.25}
+              className="seg"
+              options={[
+                ["today", "Today"],
+                ["tomorrow", "Tomorrow"],
+                ["both", "Both + movement"],
+              ]}
+            />
+          )}
           <p style={{ fontSize: "14px", color: C.t2, margin: 0, lineHeight: 1.55 }}>
             {CAPTIONS[who][what]}
           </p>
 
-          {askAggregate && (
-            <div
-              style={{
-                background: C.surface,
-                border: `1.5px solid ${C.accent}66`,
-                borderRadius: "12px",
-                padding: "14px 16px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "10px",
-              }}
-            >
-              <p style={{ fontSize: "13.5px", color: C.t2, margin: 0, lineHeight: 1.55 }}>
-                Show the centroid? A centre of gravity on a scattered cloud is an average, not a
-                consensus — discuss the spread first.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setAggregateUnlocked(true);
-                  setWho("aggregate");
-                  setAskAggregate(false);
-                }}
-                style={{
-                  minHeight: "42px",
-                  borderRadius: "8px",
-                  border: "none",
-                  background: C.accent,
-                  color: "#fff",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  fontFamily: FB,
-                  cursor: "pointer",
-                }}
-              >
-                Show aggregate
-              </button>
-              <button
-                type="button"
-                onClick={() => setAskAggregate(false)}
-                style={{
-                  minHeight: "38px",
-                  borderRadius: "8px",
-                  border: `1.5px solid ${C.border}`,
-                  background: C.bg,
-                  color: C.t2,
-                  fontSize: "14px",
-                  fontFamily: FB,
-                  cursor: "pointer",
-                }}
-              >
-                Not yet
-              </button>
-            </div>
-          )}
         </aside>
 
         <div className="rb-stage">
@@ -321,31 +256,40 @@ export function ResultsBoard({
         </div>
 
         {/* ── read-outs, visible in every combination ─────────── */}
+        {/* Three of the four need a today position. In a tomorrow-only session
+            they have nothing to measure, so they are left out rather than
+            shown as a dash that invites the question. */}
         <aside className="rb-side">
-          <ReadOut
-            label="Spread on today"
-            value={stats ? stats.spreadToday.toFixed(2) : "—"}
-            band={stats ? readSpread(stats.spreadToday) : null}
-            note="Mean distance to the centre of gravity. High means the EMC is not describing the same company today."
-          />
+          {both && (
+            <ReadOut
+              label="Spread on today"
+              value={stats?.spreadToday != null ? stats.spreadToday.toFixed(2) : "—"}
+              band={stats?.spreadToday != null ? readSpread(stats.spreadToday) : null}
+              note="Mean distance to the centre of gravity. High means the EMC is not describing the same company today."
+            />
+          )}
           <ReadOut
             label="Spread on tomorrow"
             value={stats ? stats.spreadTarget.toFixed(2) : "—"}
             band={stats ? readSpread(stats.spreadTarget) : null}
             note="High means there is no shared cultural direction. That is the subject to handle before the Bridges."
           />
-          <ReadOut
-            label="Mean change magnitude"
-            value={stats ? stats.meanMagnitude.toFixed(2) : "—"}
-            band={null}
-            note="Out of a possible 5.66. Below 0.30, the EMC is calling for an adjustment, not a transformation."
-          />
-          <ReadOut
-            label="Direction coherence"
-            value={stats?.coherence == null ? "—" : `${(stats.coherence * 100).toFixed(0)}%`}
-            band={null}
-            note="How much of each individual trajectory points the same way as the collective one."
-          />
+          {both && (
+            <>
+              <ReadOut
+                label="Mean change magnitude"
+                value={stats?.meanMagnitude != null ? stats.meanMagnitude.toFixed(2) : "—"}
+                band={null}
+                note="Out of a possible 5.66. Below 0.30, the EMC is calling for an adjustment, not a transformation."
+              />
+              <ReadOut
+                label="Direction coherence"
+                value={stats?.coherence == null ? "—" : `${(stats.coherence * 100).toFixed(0)}%`}
+                band={null}
+                note="How much of each individual trajectory points the same way as the collective one."
+              />
+            </>
+          )}
 
           {who === "aggregate" && stats && (
             <div
@@ -358,14 +302,14 @@ export function ResultsBoard({
             >
               <AxisBar
                 label="Axis I — Collectivism / Individualism"
-                today={stats.centroidToday.x}
+                today={stats.centroidToday?.x ?? null}
                 target={stats.centroidTarget.x}
                 lLabel="Collectivism"
                 rLabel="Individualism"
               />
               <AxisBar
                 label="Axis II — Integration / Fragmentation"
-                today={stats.centroidToday.y}
+                today={stats.centroidToday?.y ?? null}
                 target={stats.centroidTarget.y}
                 lLabel="Integration"
                 rLabel="Fragmentation"

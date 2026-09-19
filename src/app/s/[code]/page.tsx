@@ -17,8 +17,19 @@ export default async function ParticipantPage({ params }: { params: Promise<{ co
   const ordered = DISPLAY_ORDER.map((id) => items.find((i) => i.id === id)!);
 
   return (
-    <Shell subtitle="12 trade-offs · where we start, where we must go">
-      <Questionnaire code={session.code} closed={Boolean(session.closedAt)} items={ordered} />
+    <Shell
+      subtitle={
+        session.mode === "both"
+          ? "12 trade-offs · where we start, where we must go"
+          : "12 trade-offs · where we must go"
+      }
+    >
+      <Questionnaire
+        code={session.code}
+        closed={Boolean(session.closedAt)}
+        items={ordered}
+        mode={session.mode}
+      />
     </Shell>
   );
 }

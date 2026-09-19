@@ -8,6 +8,7 @@ export type SessionRow = {
   code: string;
   secret: string;
   title: string;
+  mode: "both" | "target";
   createdAt: string;
   closedAt: string | null;
   responseCount: number;
@@ -120,6 +121,19 @@ export function SessionsAdmin({ adminKey, initial }: { adminKey: string; initial
                     {row.code}
                   </span>
                   <span style={{ fontSize: "14px", color: C.t2 }}>{row.title}</span>
+                  {row.mode === "target" && (
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        color: C.accent,
+                        border: `1px solid ${C.accent}55`,
+                        borderRadius: "999px",
+                        padding: "2px 9px",
+                      }}
+                    >
+                      tomorrow only
+                    </span>
+                  )}
                   {row.closedAt && (
                     <span
                       style={{

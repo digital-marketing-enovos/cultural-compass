@@ -22,5 +22,7 @@ export default async function ResultsPage({
   const session = await getSessionByCode(code);
   if (!session || !secretMatches(session.secret, secret)) notFound();
 
-  return <ResultsBoard code={session.code} secret={session.secret} title={session.title} />;
+  return (
+    <ResultsBoard code={session.code} secret={session.secret} title={session.title} mode={session.mode} />
+  );
 }

@@ -8,6 +8,7 @@ import {
   countResponses,
   createSession,
   deleteSession,
+  getSessionByCode,
   listSessions,
   listResponses,
 } from "../store";
@@ -72,5 +73,28 @@ describe("session administration", () => {
     const b = await createSession("b");
     assert.notEqual(a.secret, b.secret);
     assert.ok(a.secret.length >= 20);
+  });
+});
+
+describe("tomorrow-only sessions in the store", () => {
+  test("a session keeps its mode, and defaults to both", async () => {
+    const plain = await createSession("plain");
+    const target = await createSession("target", "target");
+    assert.equal((await getSessionByCode(plain.code))!.mode, "both");
+    assert.equal((await getSessionByCode(target.code))!.mode, "target");
+    const listed = Object.fromEntries((await listSessions()).map((s) => [s.code, s.mode]));
+    assert.equal(listed[target.code], "target");
+  });
+
+  test("a response with no today position is stored and read back as null", async () => {
+    const s = await createSession("t", "target");
+    const answers = Object.fromEntries(ITEMS.map((i) => [String(i.id), { target: 3 as const }]));
+    const { today, target } = computeCoords(answers, "target");
+    await addResponse({ sessionId: s.id, label: "X", answers, today, target });
+
+    const [r] = await listResponses(s.id);
+    assert.equal(r.today, null);
+    assert.deepEqual(r.target, target);
+    assert.equal(r.answers["1"].today, undefined);
   });
 });

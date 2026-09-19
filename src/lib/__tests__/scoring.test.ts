@@ -251,15 +251,15 @@ describe("computeCoords", () => {
       kind === "today" ? tapOnPole(i, "low", 3) : tapOnPole(i, "high", 3),
     );
     const { today, target } = computeCoords(answers);
-    near(today.x, 1);
-    near(today.y, 1);
+    near(today!.x, 1);
+    near(today!.y, 1);
     near(target.x, 5);
     near(target.y, 5);
   });
 
   test("a raw-identical submission sits dead centre on both", () => {
     const { today, target } = computeCoords(fullSubmission(() => -3));
-    for (const v of [today.x, today.y, target.x, target.y]) near(v, 3);
+    for (const v of [today!.x, today!.y, target.x, target.y]) near(v, 3);
   });
 });
 
@@ -278,17 +278,17 @@ describe("groupStats", () => {
   test("a single response has zero spread", () => {
     const s = groupStats([row(2, 2, 4, 4)])!;
     assert.equal(s.n, 1);
-    near(s.spreadToday, 0);
+    near(s.spreadToday!, 0);
     near(s.spreadTarget, 0);
-    near(s.meanMagnitude, Math.hypot(2, 2));
+    near(s.meanMagnitude!, Math.hypot(2, 2));
     near(s.coherence!, 1);
   });
 
   test("centroids and spread are the plain means", () => {
     const s = groupStats([row(2, 2, 3, 3), row(4, 4, 5, 5)])!;
-    near(s.centroidToday.x, 3);
+    near(s.centroidToday!.x, 3);
     near(s.centroidTarget.y, 4);
-    near(s.spreadToday, Math.hypot(1, 1));
+    near(s.spreadToday!, Math.hypot(1, 1));
   });
 
   test("parallel vectors give full coherence, opposed ones cancel", () => {
@@ -319,5 +319,78 @@ describe("spread bands", () => {
     assert.equal(readSpread(0.7499), "partial convergence");
     assert.equal(readSpread(0.75), "marked divergence");
     assert.equal(readSpread(4), "marked divergence");
+  });
+});
+
+// ─── TOMORROW-ONLY SESSIONS ────────────────────────────────────
+
+describe("tomorrow-only mode", () => {
+  const targetOnly = (pick: (item: Item) => Raw): Answers =>
+    Object.fromEntries(ITEMS.map((i) => [String(i.id), { target: pick(i) }]));
+
+  test("accepts twelve tomorrow answers and nothing else", () => {
+    const res = parseAnswers(targetOnly((i) => tapOnPole(i, "high", 3)), "target");
+    assert.equal(res.ok, true);
+  });
+
+  test("refuses a today value rather than silently dropping it", () => {
+    const body = targetOnly(() => 3) as Record<string, unknown>;
+    body["5"] = { today: 3, target: 3 };
+    const res = parseAnswers(body, "target");
+    assert.equal(res.ok, false);
+    assert.match((res as { error: string }).error, /item 5/);
+  });
+
+  test("still requires every tomorrow answer, and only valid values", () => {
+    const missing = targetOnly(() => 3);
+    delete missing["9"];
+    assert.equal(parseAnswers(missing, "target").ok, false);
+
+    const bad = targetOnly(() => 3) as Record<string, unknown>;
+    bad["2"] = { target: 0 };
+    assert.equal(parseAnswers(bad, "target").ok, false);
+  });
+
+  test("a full both-mode payload is not accepted as tomorrow-only", () => {
+    const full = fullSubmission(() => 3);
+    assert.equal(parseAnswers(full, "target").ok, false);
+  });
+
+  test("a tomorrow-only payload is not accepted by a both-mode session", () => {
+    assert.equal(parseAnswers(targetOnly(() => 3), "both").ok, false);
+  });
+
+  test("scores tomorrow exactly as a both-mode session would, and has no today", () => {
+    const answers = targetOnly((i) => tapOnPole(i, "high", 3));
+    const { today, target } = computeCoords(answers, "target");
+    assert.equal(today, null);
+    near(target.x, 5);
+    near(target.y, 5);
+
+    // Same tomorrow answers in a both-mode session land on the same point.
+    const both = fullSubmission((i, kind) => tapOnPole(i, kind === "today" ? "low" : "high", 3));
+    const fromBoth = computeCoords(both, "both").target;
+    near(fromBoth.x, target.x);
+    near(fromBoth.y, target.y);
+  });
+
+  test("flips still apply: always tapping the left button scores dead centre", () => {
+    const { target } = computeCoords(targetOnly(() => -3), "target");
+    near(target.x, 3);
+    near(target.y, 3);
+  });
+
+  test("group statistics keep the tomorrow figures and null the rest", () => {
+    const s = groupStats([
+      { today: null, target: { x: 2, y: 2 } },
+      { today: null, target: { x: 4, y: 4 } },
+    ])!;
+    assert.equal(s.n, 2);
+    near(s.centroidTarget.x, 3);
+    near(s.spreadTarget, Math.hypot(1, 1));
+    assert.equal(s.centroidToday, null);
+    assert.equal(s.spreadToday, null);
+    assert.equal(s.meanMagnitude, null);
+    assert.equal(s.coherence, null);
   });
 });

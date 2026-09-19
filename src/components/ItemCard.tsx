@@ -1,6 +1,7 @@
 "use client";
 
 import { SCALE, type Item, type Kind, type Raw } from "@/lib/items";
+import type { Mode } from "@/lib/scoring";
 import { C, FB, FM } from "@/lib/theme";
 
 /**
@@ -13,17 +14,20 @@ export function ItemCard({
   today,
   target,
   onAnswer,
+  mode = "both",
 }: {
   item: Item;
   idx: number;
   today?: Raw;
   target?: Raw;
   onAnswer: (id: number, kind: Kind, v: Raw) => void;
+  /** `target`: a tomorrow-only session, so the Today row is not shown at all. */
+  mode?: Mode;
 }) {
   // A flipped item shows its HIGH pole on the left.
   const leftText = item.flip ? item.high : item.low;
   const rightText = item.flip ? item.low : item.high;
-  const done = today !== undefined && target !== undefined;
+  const done = target !== undefined && (mode === "target" || today !== undefined);
 
   // The label sits above its row so the four buttons span the card's full
   // width — the same width as the two propositions, which puts the gap between
@@ -137,7 +141,7 @@ export function ItemCard({
           {rightText}
         </p>
       </div>
-      <Row kind="today" val={today} label="Today" />
+      {mode === "both" && <Row kind="today" val={today} label="Today" />}
       <Row kind="target" val={target} label="Tomorrow" />
     </div>
   );

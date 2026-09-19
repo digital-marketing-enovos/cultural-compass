@@ -43,8 +43,8 @@ export async function GET(req: Request, ctx: Ctx) {
       r.id,
       r.label ?? "",
       r.createdAt,
-      r.today.x.toFixed(4),
-      r.today.y.toFixed(4),
+      r.today?.x.toFixed(4) ?? "",
+      r.today?.y.toFixed(4) ?? "",
       r.target.x.toFixed(4),
       r.target.y.toFixed(4),
       ...ITEMS.flatMap((i) => [

@@ -14,6 +14,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
   const responses = await listResponses(session.id);
   return json({
+    mode: session.mode,
     closed: Boolean(session.closedAt),
     count: responses.length,
     responses: responses.map((r) => ({

@@ -6,12 +6,15 @@ import { C, DISPLAY_TRACKING, DISPLAY_WEIGHT, FD, FM } from "@/lib/theme";
 import { AxisBar } from "./AxisBar";
 import { Compass } from "./Compass";
 
-/** Ported verbatim from the reference prototype. */
-export function PersonalResult({ today, target }: { today: Point; target: Point }) {
+/**
+ * Ported from the reference prototype. In a tomorrow-only session `today` is
+ * null: there is then one mark, no arrow, and no change vector to describe.
+ */
+export function PersonalResult({ today, target }: { today: Point | null; target: Point }) {
   const zone = getZone(target.x, target.y);
   const w = zone ? WORLDS[zone] : null;
-  const dx = target.x - today.x;
-  const dy = target.y - today.y;
+  const dx = today ? target.x - today.x : 0;
+  const dy = today ? target.y - today.y : 0;
   const mag = Math.hypot(dx, dy);
 
   const dirs: string[] = [];
@@ -35,22 +38,23 @@ export function PersonalResult({ today, target }: { today: Point; target: Point 
         <Compass
           size={300}
           dots={[
-            { x: today.x, y: today.y, kind: "today", bold: true },
+            ...(today ? [{ x: today.x, y: today.y, kind: "today" as const, bold: true }] : []),
             { x: target.x, y: target.y, kind: "target", bold: true },
           ]}
-          vectors={[{ x1: today.x, y1: today.y, x2: target.x, y2: target.y, bold: true }]}
+          vectors={today ? [{ x1: today.x, y1: today.y, x2: target.x, y2: target.y, bold: true }] : []}
+          legend={today ? "both" : "tomorrow"}
         />
         <div style={{ marginTop: "22px", padding: "0 4px" }}>
           <AxisBar
             label="Axis I — Collectivism / Individualism"
-            today={today.x}
+            today={today?.x ?? null}
             target={target.x}
             lLabel="Collectivism"
             rLabel="Individualism"
           />
           <AxisBar
             label="Axis II — Integration / Fragmentation"
-            today={today.y}
+            today={today?.y ?? null}
             target={target.y}
             lLabel="Integration"
             rLabel="Fragmentation"
@@ -58,53 +62,55 @@ export function PersonalResult({ today, target }: { today: Point; target: Point 
         </div>
       </div>
 
-      <div style={{ ...card, padding: "20px 24px" }}>
-        <div
-          style={{
-            fontSize: "9px",
-            fontWeight: 700,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: C.t3,
-            marginBottom: "10px",
-          }}
-        >
-          My change vector
+      {today && (
+        <div style={{ ...card, padding: "20px 24px" }}>
+          <div
+            style={{
+              fontSize: "9px",
+              fontWeight: 700,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: C.t3,
+              marginBottom: "10px",
+            }}
+          >
+            My change vector
+          </div>
+          {mag < 0.3 ? (
+            <p style={{ fontSize: "14px", color: C.t2, lineHeight: 1.7, margin: 0 }}>
+              For you, the Enovos culture of tomorrow sits very close to today&apos;s. Worth testing against
+              the rest of the EMC: is that a conviction, or a blind spot?
+            </p>
+          ) : (
+            <p style={{ fontSize: "14px", color: C.t2, lineHeight: 1.7, margin: 0 }}>
+              You are calling for a shift <strong style={{ color: C.text }}>{dirs.join(" and ")}</strong>, with
+              a magnitude of{" "}
+              <strong style={{ color: C.text, fontFamily: FM }}>{mag.toFixed(2)}</strong> on a scale from 0 to{" "}
+              {MAX_VECTOR.toFixed(2)}.
+            </p>
+          )}
+          <div
+            style={{
+              marginTop: "16px",
+              paddingTop: "14px",
+              borderTop: `1px solid ${C.border}`,
+              fontSize: "12px",
+              color: C.t3,
+              fontFamily: FM,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "16px",
+            }}
+          >
+            <span>
+              Today · X {today.x.toFixed(2)} · Y {today.y.toFixed(2)}
+            </span>
+            <span>
+              Tomorrow · X {target.x.toFixed(2)} · Y {target.y.toFixed(2)}
+            </span>
+          </div>
         </div>
-        {mag < 0.3 ? (
-          <p style={{ fontSize: "14px", color: C.t2, lineHeight: 1.7, margin: 0 }}>
-            For you, the Enovos culture of tomorrow sits very close to today&apos;s. Worth testing against
-            the rest of the EMC: is that a conviction, or a blind spot?
-          </p>
-        ) : (
-          <p style={{ fontSize: "14px", color: C.t2, lineHeight: 1.7, margin: 0 }}>
-            You are calling for a shift <strong style={{ color: C.text }}>{dirs.join(" and ")}</strong>, with
-            a magnitude of{" "}
-            <strong style={{ color: C.text, fontFamily: FM }}>{mag.toFixed(2)}</strong> on a scale from 0 to{" "}
-            {MAX_VECTOR.toFixed(2)}.
-          </p>
-        )}
-        <div
-          style={{
-            marginTop: "16px",
-            paddingTop: "14px",
-            borderTop: `1px solid ${C.border}`,
-            fontSize: "12px",
-            color: C.t3,
-            fontFamily: FM,
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "16px",
-          }}
-        >
-          <span>
-            Today · X {today.x.toFixed(2)} · Y {today.y.toFixed(2)}
-          </span>
-          <span>
-            Tomorrow · X {target.x.toFixed(2)} · Y {target.y.toFixed(2)}
-          </span>
-        </div>
-      </div>
+      )}
 
       {w && (
         <div
