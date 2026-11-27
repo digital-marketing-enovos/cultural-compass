@@ -1,6 +1,7 @@
-# Cultural Compass
+# Cultural Compass — team edition
 
-One leadership workshop, one session at a time, 10–20 participants on their phones.
+One team workshop, one session at a time, up to ~40 participants on their phones.
+The questionnaire is anonymous: no name, initials or email field anywhere.
 Next.js (App Router) · TypeScript · Postgres · deployed on Vercel.
 Typeface: DM Sans throughout, DM Mono for figures and coordinates.
 
@@ -58,21 +59,61 @@ never the connection string or a driver error.
 4. Drive the debrief with the two controls.
 5. `Close session` when the room is done. `Export CSV` for the raw responses.
 
-## Tomorrow-only sessions
+The CSV carries one row per response: the session code, the team, the four
+coordinates and all 24 raw answers (`i1_today`, `i1_next` … `i12_next`). No
+timestamps and no ids. The raw answers matter because the two axes are only
+independent if their items are — items 5 and 10 both touch the team's
+relationship to systematic controls and sit on different axes. If they correlate
+strongly, every point drifts along the diagonal, and that can only be checked
+from the raw answers after a real session.
 
-The **Tomorrow only** switch at session creation asks participants for one
-position per item — where Enovos must stand tomorrow — instead of two. Twelve
-answers instead of 24.
+## Anonymity
+
+No name, initials or email field exists. Several items — how a failure is owned,
+how a long-running project is stopped — only tell the truth if nothing can be
+traced back to a person, and the manager is often in the room. Two rules follow
+from that, both enforced on the server:
+
+- **The results screen renders nothing below `MIN_RESPONSES_TO_SHOW` (5).** Below
+  it no statistics are computed, so nothing can be drawn by accident. The live
+  count stays visible — the facilitator needs it to run the room, and a count
+  alone identifies nobody.
+- **Arrival order never leaves the server.** Responses are read `ORDER BY id`, a
+  uuid that carries no timestamp, so the order is arbitrary but stable across
+  polls. `createdAt` is not in the results payload and not in the CSV. In a room
+  where everyone answers within the same few minutes, arrival order identifies
+  people as reliably as a name.
+
+## Forty participants on one grid
+
+Each axis is the mean of six answers from `{-3,-1,1,3}`, so a coordinate can only
+take **nineteen values**: the grid is a 19×19 lattice, about 37px apart on a
+projected compass. Marks never *nearly* overlap — they sit well apart or land on
+exactly the same spot. At forty participants roughly a sixth would be hidden
+underneath another.
+
+So identical positions are merged into one mark whose **area** grows with the
+count, with the count shown on hover. `clusterPoints` is a pure function and
+`scoring.test.ts` asserts that the counts always sum back to the number of
+responses. Past twenty trajectories the arrows fade so the marks stay readable.
+
+## Next-year-only sessions
+
+The **Next year only** switch at session creation asks participants for one
+position per item — what would help the team work best next year — instead of
+two. Twelve answers instead of 24.
 
 The session's `mode` (`both` or `target`) is fixed at creation and decides
-everything downstream, on the server: a tomorrow-only session refuses a today
+everything downstream, on the server: a next-year-only session refuses a today
 value outright rather than dropping it, and a regular session refuses a
-tomorrow-only payload. `today_x`/`today_y` are stored as null.
+next-year-only payload. `today_x`/`today_y` are stored as null.
 
-On the results screen a tomorrow-only session keeps Individual / Aggregate but
-has no *What is shown* selector — there is only Tomorrow to show — and only the
-*Spread on tomorrow* read-out, since the other three need a today position.
-The CSV keeps the same 31 columns, with the today ones empty.
+On the results screen a next-year-only session keeps Individual / Aggregate but
+has no *What is shown* selector — there is only Next year to show — and only the
+*Spread on next year* read-out, since the other three need a today position.
+
+The word "Tomorrow" appears nowhere in this application; the second pass is
+always "next year".
 
 Databases created before this existed are upgraded by the app on first use
 (`src/lib/db.ts`): it reads the catalogue, and only if something is missing adds
@@ -85,8 +126,12 @@ Each item belongs to axis X (collectivism ↔ individualism) or Y (integration �
 fragmentation) and carries a `flip` flag meaning its **high pole is rendered on the
 left**. A raw answer is the tapped position: `-3, -1, 1, 3`, no midpoint. Flipped items
 are negated before aggregating; the mean of the six signed answers per axis maps to a
-coordinate with `3 + (mean / 3) * 2`, giving `[1, 5]`. Today and tomorrow are scored
+coordinate with `3 + (mean / 3) * 2`, giving `[1, 5]`. Today and next year are scored
 independently, server-side on submit — never on the phone.
+
+One item is worth 0.67 of the 4-point span on its axis, about 17 %. A "Somewhat"
+answer is worth a third of a "Strongly". Maximum vector length between today and
+next year: √32 = 5.657.
 
 Three of the six items on each axis are flipped, so answering everything with the same
 button scores dead centre (3, 3). That is the anti-position-bias device working, and

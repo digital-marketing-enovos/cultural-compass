@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 
 import { DISPLAY_ORDER, ITEMS, RAW_VALUES, type Item, type Raw } from "../items";
 import {
+  MIN_RESPONSES_TO_SHOW,
+  clusterPoints,
+  clusterVectors,
   computeCoords,
   computeScores,
   getZone,
@@ -392,5 +395,71 @@ describe("tomorrow-only mode", () => {
     assert.equal(s.spreadToday, null);
     assert.equal(s.meanMagnitude, null);
     assert.equal(s.coherence, null);
+  });
+});
+
+// ─── CROWD RENDERING ───────────────────────────────────────────
+
+describe("clustering identical positions", () => {
+  test("the coordinate lattice really is 19 values wide", () => {
+    // What makes exact overlap the problem rather than near-overlap.
+    const reachable = new Set<number>();
+    for (let sum = -18; sum <= 18; sum += 2) reachable.add(toCoord(sum / 6));
+    assert.equal(reachable.size, 19);
+    const sorted = [...reachable].sort((a, b) => a - b);
+    near(sorted[0], 1);
+    near(sorted[sorted.length - 1], 5);
+    near(sorted[1] - sorted[0], 2 / 9);
+  });
+
+  test("merges points on the same spot and counts them", () => {
+    const out = clusterPoints([
+      { x: 3, y: 3 },
+      { x: 3, y: 3 },
+      { x: 3, y: 3 },
+      { x: 4, y: 2 },
+    ]);
+    assert.equal(out.length, 2);
+    assert.equal(out.find((c) => c.x === 3)!.count, 3);
+    assert.equal(out.find((c) => c.x === 4)!.count, 1);
+  });
+
+  test("absorbs float noise but never merges neighbouring lattice points", () => {
+    const a = toCoord(-2 / 6);
+    const merged = clusterPoints([
+      { x: a, y: 3 },
+      { x: a + 1e-7, y: 3 }, // same point stored as float32
+    ]);
+    assert.equal(merged.length, 1);
+    assert.equal(merged[0].count, 2);
+
+    const apart = clusterPoints([
+      { x: toCoord(-2 / 6), y: 3 },
+      { x: toCoord(0), y: 3 }, // the very next lattice point, 0.222 away
+    ]);
+    assert.equal(apart.length, 2);
+  });
+
+  test("every count is kept, so nothing is silently dropped", () => {
+    const pts = Array.from({ length: 40 }, (_, i) => ({ x: 3, y: 1 + (i % 5) }));
+    const out = clusterPoints(pts);
+    assert.equal(out.reduce((a, c) => a + c.count, 0), 40);
+    assert.equal(out.length, 5);
+  });
+
+  test("an empty cloud clusters to nothing", () => {
+    assert.deepEqual(clusterPoints([]), []);
+    assert.deepEqual(clusterVectors([]), []);
+  });
+
+  test("identical trajectories are drawn once, different ones stay apart", () => {
+    const v = (a: number, b: number, c: number, d: number) => ({ from: { x: a, y: b }, to: { x: c, y: d } });
+    const out = clusterVectors([v(2, 2, 4, 4), v(2, 2, 4, 4), v(2, 2, 4, 3)]);
+    assert.equal(out.length, 2);
+    assert.equal(out.find((c) => c.to.y === 4)!.count, 2);
+  });
+
+  test("the privacy threshold is five", () => {
+    assert.equal(MIN_RESPONSES_TO_SHOW, 5);
   });
 });

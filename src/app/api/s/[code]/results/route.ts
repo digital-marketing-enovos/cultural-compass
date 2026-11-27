@@ -17,12 +17,8 @@ export async function GET(req: Request, ctx: Ctx) {
     mode: session.mode,
     closed: Boolean(session.closedAt),
     count: responses.length,
-    responses: responses.map((r) => ({
-      id: r.id,
-      label: r.label,
-      today: r.today,
-      target: r.target,
-      createdAt: r.createdAt,
-    })),
+    // No label, and no createdAt: neither identity nor arrival order leaves the
+    // server. The id is a uuid, which carries no timestamp.
+    responses: responses.map((r) => ({ id: r.id, today: r.today, target: r.target })),
   });
 }

@@ -26,7 +26,7 @@ async function seed(title: string, n: number) {
   const s = await createSession(title);
   const { today, target } = computeCoords(answers());
   for (let i = 0; i < n; i++) {
-    await addResponse({ sessionId: s.id, label: `P${i}`, answers: answers(), today, target });
+    await addResponse({ sessionId: s.id, answers: answers(), today, target });
   }
   return s;
 }
@@ -90,7 +90,7 @@ describe("tomorrow-only sessions in the store", () => {
     const s = await createSession("t", "target");
     const answers = Object.fromEntries(ITEMS.map((i) => [String(i.id), { target: 3 as const }]));
     const { today, target } = computeCoords(answers, "target");
-    await addResponse({ sessionId: s.id, label: "X", answers, today, target });
+    await addResponse({ sessionId: s.id, answers, today, target });
 
     const [r] = await listResponses(s.id);
     assert.equal(r.today, null);

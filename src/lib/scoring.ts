@@ -5,7 +5,7 @@ export type Point = { x: number; y: number };
 export type PartialAnswers = Record<number, Raw | undefined>;
 /**
  * What a session asks for. `both` is the full exercise — where Enovos stands
- * today and where it must stand tomorrow. `target` asks for tomorrow only.
+ * today and what would help it work best next year. `target` asks for next year only.
  */
 export type Mode = "both" | "target";
 export const MODES: Mode[] = ["both", "target"];
@@ -88,9 +88,9 @@ export type ParseResult =
   | { ok: false; error: string };
 
 /**
- * In `both` mode all 24 values are required. In `target` mode the 12 tomorrow
+ * In `both` mode all 24 values are required. In `target` mode the 12 next-year
  * values are required and a today value is refused rather than ignored, so a
- * tomorrow-only session can never end up holding half-answered today data.
+ * next-year-only session can never end up holding half-answered today data.
  */
 export function parseAnswers(input: unknown, mode: Mode = "both"): ParseResult {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
@@ -128,18 +128,18 @@ export type GroupRow = { today: Point | null; target: Point };
 
 /**
  * Everything that needs a today position — its centroid and spread, and the
- * change vectors — is null in a tomorrow-only session rather than a
+ * change vectors — is null in a next-year-only session rather than a
  * meaningless zero.
  */
 export type GroupStats = {
   n: number;
   /** Centroid of the today marks. */
   centroidToday: Point | null;
-  /** Centroid of the tomorrow marks. */
+  /** Centroid of the next-year marks. */
   centroidTarget: Point;
   /** Mean euclidean distance from the today centroid. */
   spreadToday: number | null;
-  /** Mean euclidean distance from the tomorrow centroid. */
+  /** Mean euclidean distance from the next-year centroid. */
   spreadTarget: number;
   /** Mean length of the individual change vectors. */
   meanMagnitude: number | null;
@@ -192,4 +192,56 @@ export function groupStats(rows: GroupRow[]): GroupStats | null {
 
 export function readSpread(s: number): string {
   return s < 0.35 ? "strong alignment" : s < 0.75 ? "partial convergence" : "marked divergence";
+}
+
+// ─── CROWD RENDERING ───────────────────────────────────────────
+
+/**
+ * How many responses the results screen needs before it renders anything.
+ *
+ * Several items — how a failure is owned, how a long-running project is
+ * stopped — only tell the truth if nothing can be traced back to a person, and
+ * the manager is often in the room. Below this count, a single mark appearing
+ * on a projected screen is attributable to whoever just put their phone down.
+ */
+export const MIN_RESPONSES_TO_SHOW = 5;
+
+/** A position, and how many people share it exactly. */
+export type Cluster = { x: number; y: number; count: number };
+export type VectorCluster = { from: Point; to: Point; count: number };
+
+/**
+ * Each axis is the mean of six answers drawn from {-3,-1,1,3}, so a coordinate
+ * can only take nineteen values: the grid is a 19x19 lattice, about 37px apart
+ * on a projected compass. Marks therefore never *nearly* overlap — they either
+ * sit well apart or land on exactly the same spot. With forty participants a
+ * sixth of them would be hidden underneath another, so identical positions are
+ * merged into one mark that carries its own count instead.
+ *
+ * Rounding absorbs the float32 noise of the `real` columns; it never merges two
+ * genuinely different lattice points, which are 0.22 apart.
+ */
+const key = (p: Point) => `${Math.round(p.x * 1000)}:${Math.round(p.y * 1000)}`;
+
+export function clusterPoints(points: Point[]): Cluster[] {
+  const seen = new Map<string, Cluster>();
+  for (const p of points) {
+    const k = key(p);
+    const hit = seen.get(k);
+    if (hit) hit.count += 1;
+    else seen.set(k, { x: p.x, y: p.y, count: 1 });
+  }
+  return [...seen.values()];
+}
+
+/** The same, for whole trajectories: identical arrows are drawn once. */
+export function clusterVectors(pairs: { from: Point; to: Point }[]): VectorCluster[] {
+  const seen = new Map<string, VectorCluster>();
+  for (const v of pairs) {
+    const k = `${key(v.from)}>${key(v.to)}`;
+    const hit = seen.get(k);
+    if (hit) hit.count += 1;
+    else seen.set(k, { from: v.from, to: v.to, count: 1 });
+  }
+  return [...seen.values()];
 }

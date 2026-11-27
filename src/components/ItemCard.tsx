@@ -21,7 +21,7 @@ export function ItemCard({
   today?: Raw;
   target?: Raw;
   onAnswer: (id: number, kind: Kind, v: Raw) => void;
-  /** `target`: a tomorrow-only session, so the Today row is not shown at all. */
+  /** `target`: a next-year-only session, so the Today row is not shown at all. */
   mode?: Mode;
 }) {
   // A flipped item shows its HIGH pole on the left.
@@ -142,7 +142,7 @@ export function ItemCard({
         </p>
       </div>
       {mode === "both" && <Row kind="today" val={today} label="Today" />}
-      <Row kind="target" val={target} label="Tomorrow" />
+      <Row kind="target" val={target} label="Next year" />
     </div>
   );
 }

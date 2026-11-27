@@ -65,8 +65,10 @@ function poolConfig(connectionString: string): PoolConfig {
   return {
     connectionString,
     ssl: local ? false : { rejectUnauthorized: !noVerify },
-    // 20 phones and one facilitator screen; the pooler does the rest.
-    max: 5,
+    // ~40 phones, a projected join screen and a results screen that polls.
+    // Serverless means several instances each hold their own pool, so this is a
+    // per-instance ceiling, not a total; the Neon pooler absorbs the rest.
+    max: 10,
     idleTimeoutMillis: 30_000,
     // Neon's free tier sleeps when idle; the first request has to wake it.
     connectionTimeoutMillis: 15_000,

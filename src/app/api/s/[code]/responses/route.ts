@@ -1,6 +1,6 @@
 import { json, notFound, resolveSession } from "@/lib/http";
 import { computeCoords, parseAnswers } from "@/lib/scoring";
-import { addResponse, LABEL_MAX } from "@/lib/store";
+import { addResponse } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export async function POST(req: Request, ctx: Ctx) {
   if (!session) return notFound();
   if (session.closedAt) return json({ error: "This session is closed." }, 409);
 
-  let body: { answers?: unknown; label?: unknown };
+  let body: { answers?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -24,16 +24,9 @@ export async function POST(req: Request, ctx: Ctx) {
   const parsed = parseAnswers(body?.answers, session.mode);
   if (!parsed.ok) return json({ error: parsed.error }, 400);
 
-  if (body.label !== undefined && body.label !== null && typeof body.label !== "string") {
-    return json({ error: "label must be a string" }, 400);
-  }
-  const label =
-    typeof body.label === "string" ? body.label.trim().slice(0, LABEL_MAX) || null : null;
-
   const { today, target } = computeCoords(parsed.answers, session.mode);
   const saved = await addResponse({
     sessionId: session.id,
-    label,
     answers: parsed.answers,
     today,
     target,

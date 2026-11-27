@@ -7,7 +7,7 @@ import { AxisBar } from "./AxisBar";
 import { Compass } from "./Compass";
 
 /**
- * Ported from the reference prototype. In a tomorrow-only session `today` is
+ * Ported from the reference prototype. In a next-year-only session `today` is
  * null: there is then one mark, no arrow, and no change vector to describe.
  */
 export function PersonalResult({ today, target }: { today: Point | null; target: Point }) {
@@ -42,7 +42,7 @@ export function PersonalResult({ today, target }: { today: Point | null; target:
             { x: target.x, y: target.y, kind: "target", bold: true },
           ]}
           vectors={today ? [{ x1: today.x, y1: today.y, x2: target.x, y2: target.y, bold: true }] : []}
-          legend={today ? "both" : "tomorrow"}
+          legend={today ? "both" : "next"}
         />
         <div style={{ marginTop: "22px", padding: "0 4px" }}>
           <AxisBar
@@ -78,8 +78,8 @@ export function PersonalResult({ today, target }: { today: Point | null; target:
           </div>
           {mag < 0.3 ? (
             <p style={{ fontSize: "14px", color: C.t2, lineHeight: 1.7, margin: 0 }}>
-              For you, the Enovos culture of tomorrow sits very close to today&apos;s. Worth testing against
-              the rest of the EMC: is that a conviction, or a blind spot?
+              For you, how the team should work next year sits very close to how it works today. Worth
+              testing against the rest of the team: is that a conviction, or a blind spot?
             </p>
           ) : (
             <p style={{ fontSize: "14px", color: C.t2, lineHeight: 1.7, margin: 0 }}>
@@ -106,7 +106,7 @@ export function PersonalResult({ today, target }: { today: Point | null; target:
               Today · X {today.x.toFixed(2)} · Y {today.y.toFixed(2)}
             </span>
             <span>
-              Tomorrow · X {target.x.toFixed(2)} · Y {target.y.toFixed(2)}
+              Next year · X {target.x.toFixed(2)} · Y {target.y.toFixed(2)}
             </span>
           </div>
         </div>

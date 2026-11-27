@@ -44,7 +44,7 @@ export function AxisBar({
         >
           {label}
         </span>
-        {/* Tomorrow-only: no before/after, but the position is still worth a figure. */}
+        {/* Next-year-only: no before/after, but the position is still worth a figure. */}
         {today === null && target !== null && (
           <span style={{ fontSize: px(11), fontWeight: 600, color: C.text, fontFamily: FM, whiteSpace: "nowrap" }}>
             {target.toFixed(2)}

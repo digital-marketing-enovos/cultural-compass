@@ -9,11 +9,27 @@ export type Dot = {
   kind: "today" | "target";
   bold?: boolean;
   label?: string;
+  /** People sharing this exact position. The mark grows with it. */
+  count?: number;
 };
 
-export type Vector = { x1: number; y1: number; x2: number; y2: number; bold?: boolean };
+export type Vector = {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  bold?: boolean;
+  count?: number;
+};
 
-export type Legend = "both" | "today" | "tomorrow" | "none";
+/**
+ * Area grows with the number of people on the spot, not radius: doubling the
+ * count doubles the ink, which is what the eye actually compares. Capped so one
+ * large pile cannot swallow the quadrant it sits in.
+ */
+const grow = (base: number, count = 1) => base * Math.min(Math.sqrt(count), 2.4);
+
+export type Legend = "both" | "today" | "next" | "none";
 
 /**
  * Ported verbatim from the reference prototype. `size` is the viewBox geometry
@@ -182,6 +198,10 @@ export function Compass({
         INDIVIDUALISM
       </text>
 
+      {/* Forty trajectories crossing each other become a thicket that hides the
+          marks underneath. Past twenty, the arrows step back and let the
+          positions read; the bundle's direction survives the fade, the dots
+          would not survive the clutter. */}
       {vectors.map((v, i) => {
         const x1 = sx(v.x1);
         const y1 = sy(v.y1);
@@ -198,8 +218,8 @@ export function Compass({
             x2={x1 + (x2 - x1) * k}
             y2={y1 + (y2 - y1) * k}
             stroke={v.bold ? C.target : C.t3}
-            strokeWidth={v.bold ? 1.6 : 1}
-            opacity={v.bold ? 0.85 : 0.45}
+            strokeWidth={v.bold ? 1.6 : grow(1, v.count)}
+            opacity={v.bold ? 0.85 : vectors.length > 20 ? 0.28 : 0.45}
             markerEnd={v.bold ? "url(#ah)" : "url(#ah-soft)"}
           />
         );
@@ -218,11 +238,11 @@ export function Compass({
           : {};
 
         const hit = d.label ? (
-          <circle cx={cx} cy={cy} r={11} fill="transparent" />
+          <circle cx={cx} cy={cy} r={Math.max(11, grow(5, d.count) + 4)} fill="transparent" />
         ) : null;
 
         if (d.kind === "today") {
-          const r = d.bold ? 6.5 : 5;
+          const r = d.bold ? 6.5 : grow(5, d.count);
           return (
             <g key={i} {...enter}>
               {on && <circle cx={cx} cy={cy} r={r + 5} fill={C.accent} opacity={0.22} />}
@@ -247,11 +267,11 @@ export function Compass({
         return (
           <g key={i} {...enter}>
             {d.bold && <circle cx={cx} cy={cy} r="13" fill={C.target} opacity="0.07" />}
-            {on && <circle cx={cx} cy={cy} r={9} fill={C.accent} opacity={0.22} />}
+            {on && <circle cx={cx} cy={cy} r={grow(4, d.count) + 5} fill={C.accent} opacity={0.22} />}
             <circle
               cx={cx}
               cy={cy}
-              r={d.bold ? 6.5 : 4}
+              r={d.bold ? 6.5 : grow(4, d.count)}
               fill={on ? C.accent : C.target}
               opacity={d.bold ? 1 : on ? 1 : 0.6}
             />
@@ -291,7 +311,7 @@ export function Compass({
 
       {legend !== "none" && (
         <g transform={`translate(${pad}, ${size - 8})`}>
-          {legend !== "tomorrow" && (
+          {legend !== "next" && (
             <>
               <circle cx="4" cy="-3" r="4.4" fill="none" stroke={C.today} strokeWidth="1.7" />
               <text x="13" y="0" fill={C.t3} fontSize="8.5" fontFamily={FB}>
@@ -301,9 +321,9 @@ export function Compass({
           )}
           {legend !== "today" && (
             <>
-              <circle cx={legend === "tomorrow" ? 4 : 62} cy="-3" r="4.5" fill={C.target} />
-              <text x={legend === "tomorrow" ? 13 : 71} y="0" fill={C.t3} fontSize="8.5" fontFamily={FB}>
-                Tomorrow
+              <circle cx={legend === "next" ? 4 : 62} cy="-3" r="4.5" fill={C.target} />
+              <text x={legend === "next" ? 13 : 71} y="0" fill={C.t3} fontSize="8.5" fontFamily={FB}>
+                Next year
               </text>
             </>
           )}

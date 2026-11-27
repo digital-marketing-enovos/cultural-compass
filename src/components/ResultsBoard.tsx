@@ -5,25 +5,34 @@ import { AxisBar } from "./AxisBar";
 import { Compass, type Dot, type Vector } from "./Compass";
 import { Segmented } from "./Segmented";
 import { WORLDS } from "@/lib/items";
-import { getZone, groupStats, readSpread, type Mode, type Point } from "@/lib/scoring";
+import {
+  MIN_RESPONSES_TO_SHOW,
+  clusterPoints,
+  clusterVectors,
+  getZone,
+  groupStats,
+  readSpread,
+  type Mode,
+  type Point,
+} from "@/lib/scoring";
 import { C, DISPLAY_TRACKING, DISPLAY_WEIGHT, FB, FD, FM } from "@/lib/theme";
 import { usePoll } from "@/lib/usePoll";
 
-type Row = { id: string; label: string | null; today: Point | null; target: Point; createdAt: string };
+type Row = { id: string; today: Point | null; target: Point };
 type Payload = { closed: boolean; count: number; responses: Row[] };
 
 type Who = "individual" | "aggregate";
-type What = "today" | "tomorrow" | "both";
+type What = "today" | "next" | "both";
 
 const CAPTIONS: Record<Who, Record<What, string>> = {
   individual: {
     today: "Do we even describe the same company today?",
-    tomorrow: "Is there a shared direction, or several?",
+    next: "Is there a shared direction, or several?",
     both: "Each arrow is one leader's agenda. A tight bundle means alignment.",
   },
   aggregate: {
     today: "The group's centre of gravity on the present.",
-    tomorrow: "The group's centre of gravity on the target culture.",
+    next: "The group's centre of gravity on the target culture.",
     both: "The collective shift — an average, not a consensus.",
   },
 };
@@ -37,7 +46,7 @@ export function ResultsBoard({
   code: string;
   secret: string;
   title: string;
-  /** `target`: tomorrow-only session — there is nothing to show for Today, nor any movement. */
+  /** `target`: next-year-only session — nothing to show for Today, nor any movement. */
   mode: Mode;
 }) {
   const both = mode === "both";
@@ -45,10 +54,15 @@ export function ResultsBoard({
   const { data, status, setData } = usePoll<Payload>(`${base}/results?k=${encodeURIComponent(secret)}`);
 
   const [who, setWho] = useState<Who>("individual");
-  const [what, setWhat] = useState<What>(both ? "today" : "tomorrow");
+  const [what, setWhat] = useState<What>(both ? "today" : "next");
   const [closing, setClosing] = useState(false);
 
-  const rows = data?.responses ?? [];
+  const all = data?.responses ?? [];
+  // Below the threshold nothing is computed, so nothing can be rendered by
+  // accident: a lone mark on a projected screen belongs to whoever just put
+  // their phone down, and several items only tell the truth if it does not.
+  const enough = all.length >= MIN_RESPONSES_TO_SHOW;
+  const rows = enough ? all : [];
   const stats = useMemo(() => groupStats(rows.map((r) => ({ today: r.today, target: r.target }))), [rows]);
 
   const view = useMemo(() => {
@@ -57,18 +71,24 @@ export function ResultsBoard({
     if (!stats) return { dots, vectors };
 
     const wantToday = what === "today" || what === "both";
-    const wantTarget = what === "tomorrow" || what === "both";
+    const wantTarget = what === "next" || what === "both";
 
     if (who === "individual") {
-      for (const r of rows) {
-        if (wantToday && r.today)
-          dots.push({ x: r.today.x, y: r.today.y, kind: "today", label: r.label ?? undefined });
-        if (wantTarget)
-          dots.push({ x: r.target.x, y: r.target.y, kind: "target", label: r.label ?? undefined });
+      const plural = (n: number) => `${n} ${n === 1 ? "response" : "responses"}`;
+      if (wantToday) {
+        for (const c of clusterPoints(rows.flatMap((r) => (r.today ? [r.today] : [])))) {
+          dots.push({ x: c.x, y: c.y, kind: "today", count: c.count, label: plural(c.count) });
+        }
+      }
+      if (wantTarget) {
+        for (const c of clusterPoints(rows.map((r) => r.target))) {
+          dots.push({ x: c.x, y: c.y, kind: "target", count: c.count, label: plural(c.count) });
+        }
       }
       if (what === "both") {
-        for (const r of rows) {
-          if (r.today) vectors.push({ x1: r.today.x, y1: r.today.y, x2: r.target.x, y2: r.target.y });
+        const pairs = rows.flatMap((r) => (r.today ? [{ from: r.today, to: r.target }] : []));
+        for (const v of clusterVectors(pairs)) {
+          vectors.push({ x1: v.from.x, y1: v.from.y, x2: v.to.x, y2: v.to.y, count: v.count });
         }
         // No group-mean arrow here on purpose: this view is the fan of
         // individual agendas, and a mean belongs to the Aggregate view.
@@ -196,7 +216,7 @@ export function ResultsBoard({
               ["aggregate", "Aggregate"],
             ]}
           />
-          {/* A tomorrow-only session has a single thing to show, so no selector:
+          {/* A next-year-only session has a single thing to show, so no selector:
               a one-option control would be a button that does nothing. */}
           {both && (
             <Segmented<What>
@@ -207,7 +227,7 @@ export function ResultsBoard({
               className="seg"
               options={[
                 ["today", "Today"],
-                ["tomorrow", "Tomorrow"],
+                ["next", "Next year"],
                 ["both", "Both + movement"],
               ]}
             />
@@ -233,7 +253,7 @@ export function ResultsBoard({
               fill
               dots={view.dots}
               vectors={view.vectors}
-              legend={what === "both" ? "both" : what === "today" ? "today" : "tomorrow"}
+              legend={what === "both" ? "both" : what === "today" ? "today" : "next"}
             />
             {!stats && (
               <p
@@ -249,14 +269,18 @@ export function ResultsBoard({
                   pointerEvents: "none",
                 }}
               >
-                {status === "loading" ? "Loading…" : "Waiting for the first response"}
+                {status === "loading"
+                  ? "Loading…"
+                  : all.length === 0
+                    ? "Waiting for the first response"
+                    : `Hidden until ${MIN_RESPONSES_TO_SHOW} responses — ${all.length} so far`}
               </p>
             )}
           </div>
         </div>
 
         {/* ── read-outs, visible in every combination ─────────── */}
-        {/* Three of the four need a today position. In a tomorrow-only session
+        {/* Three of the four need a today position. In a next-year-only session
             they have nothing to measure, so they are left out rather than
             shown as a dash that invites the question. */}
         <aside className="rb-side">
@@ -269,7 +293,7 @@ export function ResultsBoard({
             />
           )}
           <ReadOut
-            label="Spread on tomorrow"
+            label="Spread on next year"
             value={stats ? stats.spreadTarget.toFixed(2) : "—"}
             band={stats ? readSpread(stats.spreadTarget) : null}
             note="High means there is no shared cultural direction. That is the subject to handle before the Bridges."

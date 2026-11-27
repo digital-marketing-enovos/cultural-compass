@@ -16,15 +16,12 @@ export type Session = {
 export type StoredResponse = {
   id: string;
   sessionId: string;
-  label: string | null;
   answers: Answers;
-  /** Null in a tomorrow-only session. */
+  /** Null in a next-year-only session. */
   today: Point | null;
   target: Point;
   createdAt: string;
 };
-
-export const LABEL_MAX = 12;
 
 // ─── ID GENERATION ─────────────────────────────────────────────
 
@@ -159,7 +156,6 @@ export async function closeSession(id: string): Promise<void> {
 type ResponseRow = {
   id: string;
   session_id: string;
-  label: string | null;
   answers: Answers;
   today_x: number | null;
   today_y: number | null;
@@ -171,7 +167,6 @@ type ResponseRow = {
 const toResponse = (r: ResponseRow): StoredResponse => ({
   id: r.id,
   sessionId: r.session_id,
-  label: r.label,
   answers: r.answers,
   today: r.today_x === null || r.today_y === null ? null : { x: r.today_x, y: r.today_y },
   target: { x: r.target_x, y: r.target_y },
@@ -180,18 +175,14 @@ const toResponse = (r: ResponseRow): StoredResponse => ({
 
 export async function addResponse(input: {
   sessionId: string;
-  label: string | null;
   answers: Answers;
   today: Point | null;
   target: Point;
 }): Promise<StoredResponse> {
-  const label = input.label?.trim().slice(0, LABEL_MAX) || null;
-
   if (!hasDatabase()) {
     const response: StoredResponse = {
       id: randomUUID(),
       sessionId: input.sessionId,
-      label,
       answers: input.answers,
       today: input.today,
       target: input.target,
@@ -202,12 +193,11 @@ export async function addResponse(input: {
   }
 
   const rows = await query<ResponseRow>(
-    `INSERT INTO responses (session_id, label, answers, today_x, today_y, target_x, target_y)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING id, session_id, label, answers, today_x, today_y, target_x, target_y, created_at`,
+    `INSERT INTO responses (session_id, answers, today_x, today_y, target_x, target_y)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, session_id, answers, today_x, today_y, target_x, target_y, created_at`,
     [
       input.sessionId,
-      label,
       JSON.stringify(input.answers),
       input.today?.x ?? null,
       input.today?.y ?? null,
@@ -219,14 +209,18 @@ export async function addResponse(input: {
 }
 
 export async function listResponses(sessionId: string): Promise<StoredResponse[]> {
+  // Ordered by id, never by time. A uuid carries no timestamp, so the order is
+  // arbitrary but stable across polls — the marks do not jump between refreshes,
+  // and arrival order never leaves the server. In a room where everyone answers
+  // within the same few minutes, that order identifies people as well as a name.
   if (!hasDatabase()) {
     return memory()
       .responses.filter((r) => r.sessionId === sessionId)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      .sort((a, b) => a.id.localeCompare(b.id));
   }
   const rows = await query<ResponseRow>(
-    `SELECT id, session_id, label, answers, today_x, today_y, target_x, target_y, created_at
-       FROM responses WHERE session_id = $1 ORDER BY created_at`,
+    `SELECT id, session_id, answers, today_x, today_y, target_x, target_y, created_at
+       FROM responses WHERE session_id = $1 ORDER BY id`,
     [sessionId],
   );
   return rows.map(toResponse);
@@ -250,7 +244,7 @@ export async function getResponse(id: string): Promise<StoredResponse | null> {
     return memory().responses.find((r) => r.id === id) ?? null;
   }
   const rows = await query<ResponseRow>(
-    `SELECT id, session_id, label, answers, today_x, today_y, target_x, target_y, created_at
+    `SELECT id, session_id, answers, today_x, today_y, target_x, target_y, created_at
        FROM responses WHERE id = $1`,
     [id],
   );

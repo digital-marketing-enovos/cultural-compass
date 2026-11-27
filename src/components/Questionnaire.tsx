@@ -7,9 +7,9 @@ import { C, FB } from "@/lib/theme";
 import { ItemCard } from "./ItemCard";
 import { PersonalResult } from "./PersonalResult";
 
-const LABEL_MAX = 12;
-
-type Draft = { today: Record<number, Raw>; target: Record<number, Raw>; label: string };
+// No label: the questionnaire is anonymous, and several items only tell the
+// truth if nothing can be traced back to a person.
+type Draft = { today: Record<number, Raw>; target: Record<number, Raw> };
 type Submitted = { id: string; today: Point | null; target: Point };
 
 const draftKey = (code: string) => `cc:draft:${code}`;
@@ -44,7 +44,7 @@ export function Questionnaire({
   closed: boolean;
   /** The twelve items, already in display order, wording resolved server-side. */
   items: Item[];
-  /** `target`: tomorrow only — one row per card, twelve positions instead of 24. */
+  /** `target`: next year only — one row per card, twelve positions instead of 24. */
   mode: Mode;
 }) {
   const both = mode === "both";
@@ -56,7 +56,7 @@ export function Questionnaire({
 
   useEffect(() => {
     setSubmitted(readStore<Submitted>(doneKey(code)));
-    setDraft(readStore<Draft>(draftKey(code)) ?? { today: {}, target: {}, label: "" });
+    setDraft(readStore<Draft>(draftKey(code)) ?? { today: {}, target: {} });
   }, [code]);
 
   const update = useCallback(
@@ -107,7 +107,7 @@ export function Questionnaire({
       const res = await fetch(`/api/s/${encodeURIComponent(code)}/responses`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ answers, label: draft.label.trim() || null }),
+        body: JSON.stringify({ answers }),
       });
       const body = (await res.json().catch(() => ({}))) as {
         id?: string;
@@ -194,14 +194,14 @@ export function Questionnaire({
           Twelve trade-offs. Both options are defensible — there is no right answer, only a priority.{" "}
           {both ? (
             <>
-              Position yourself <strong style={{ color: C.text }}>twice</strong> on each: where Enovos
-              stands <strong style={{ color: C.text }}>today</strong>, and where Enovos must stand{" "}
-              <strong style={{ color: C.text }}>tomorrow</strong> for NEXT to succeed.
+              Position yourself <strong style={{ color: C.text }}>twice</strong> on each one: where your
+              team stands <strong style={{ color: C.text }}>today</strong>, and what would help the team
+              work best <strong style={{ color: C.text }}>next year</strong>.
             </>
           ) : (
             <>
-              Position yourself on each: where Enovos must stand{" "}
-              <strong style={{ color: C.text }}>tomorrow</strong> for NEXT to succeed.
+              Position yourself on each one: what would help the team work best{" "}
+              <strong style={{ color: C.text }}>next year</strong>.
             </>
           )}
         </p>
@@ -219,53 +219,6 @@ export function Questionnaire({
           />
         </div>
       ))}
-
-      <div
-        style={{
-          background: C.surface,
-          borderRadius: "10px",
-          border: `1px solid ${C.border}`,
-          padding: "16px 20px",
-          marginBottom: "12px",
-        }}
-      >
-        <label
-          htmlFor="cc-label"
-          style={{
-            display: "block",
-            fontSize: "9px",
-            fontWeight: 700,
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-            color: C.t3,
-            marginBottom: "8px",
-          }}
-        >
-          Initials — optional
-        </label>
-        <input
-          id="cc-label"
-          value={draft.label}
-          maxLength={LABEL_MAX}
-          onChange={(e) => update((d) => ({ ...d, label: e.target.value }))}
-          placeholder="Leave blank to stay anonymous"
-          style={{
-            width: "100%",
-            minHeight: "44px",
-            padding: "10px 12px",
-            border: `1px solid ${C.border}`,
-            borderRadius: "8px",
-            fontSize: "14px",
-            fontFamily: FB,
-            color: C.text,
-            background: C.bg,
-            boxSizing: "border-box",
-          }}
-        />
-        <p style={{ fontSize: "11px", color: C.t3, margin: "8px 0 0", lineHeight: 1.6 }}>
-          Only so the facilitator can point at your dot during the debrief. Nothing else is collected.
-        </p>
-      </div>
 
       {error && (
         <p
