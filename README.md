@@ -71,13 +71,15 @@ from the raw answers after a real session.
 
 No name, initials or email field exists. Several items — how a failure is owned,
 how a long-running project is stopped — only tell the truth if nothing can be
-traced back to a person, and the manager is often in the room. Two rules follow
-from that, both enforced on the server:
+traced back to a person, and the manager is often in the room.
 
-- **The results screen renders nothing below `MIN_RESPONSES_TO_SHOW` (5).** Below
-  it no statistics are computed, so nothing can be drawn by accident. The live
-  count stays visible — the facilitator needs it to run the room, and a count
-  alone identifies nobody.
+The specification also called for the results screen to render nothing below
+five responses. That gate was removed at the facilitator's request: with it
+gone, the first person to submit is briefly alone on the grid and identifiable
+to the room, so do not project the results screen until the responses are in.
+
+One rule remains, enforced on the server:
+
 - **Arrival order never leaves the server.** Responses are read `ORDER BY id`, a
   uuid that carries no timestamp, so the order is arbitrary but stable across
   polls. `createdAt` is not in the results payload and not in the CSV. In a room

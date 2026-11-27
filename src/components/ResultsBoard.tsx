@@ -6,7 +6,6 @@ import { Compass, type Dot, type Vector } from "./Compass";
 import { Segmented } from "./Segmented";
 import { WORLDS } from "@/lib/items";
 import {
-  MIN_RESPONSES_TO_SHOW,
   clusterPoints,
   clusterVectors,
   getZone,
@@ -57,12 +56,7 @@ export function ResultsBoard({
   const [what, setWhat] = useState<What>(both ? "today" : "tomorrow");
   const [closing, setClosing] = useState(false);
 
-  const all = data?.responses ?? [];
-  // Below the threshold nothing is computed, so nothing can be rendered by
-  // accident: a lone mark on a projected screen belongs to whoever just put
-  // their phone down, and several items only tell the truth if it does not.
-  const enough = all.length >= MIN_RESPONSES_TO_SHOW;
-  const rows = enough ? all : [];
+  const rows = data?.responses ?? [];
   const stats = useMemo(() => groupStats(rows.map((r) => ({ today: r.today, target: r.target }))), [rows]);
 
   const view = useMemo(() => {
@@ -269,11 +263,7 @@ export function ResultsBoard({
                   pointerEvents: "none",
                 }}
               >
-                {status === "loading"
-                  ? "Loading…"
-                  : all.length === 0
-                    ? "Waiting for the first response"
-                    : `Hidden until ${MIN_RESPONSES_TO_SHOW} responses — ${all.length} so far`}
+                {status === "loading" ? "Loading…" : "Waiting for the first response"}
               </p>
             )}
           </div>

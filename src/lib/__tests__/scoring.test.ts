@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 import { DISPLAY_ORDER, ITEMS, RAW_VALUES, type Item, type Raw } from "../items";
 import {
-  MIN_RESPONSES_TO_SHOW,
   clusterPoints,
   clusterVectors,
   computeCoords,
@@ -457,9 +456,5 @@ describe("clustering identical positions", () => {
     const out = clusterVectors([v(2, 2, 4, 4), v(2, 2, 4, 4), v(2, 2, 4, 3)]);
     assert.equal(out.length, 2);
     assert.equal(out.find((c) => c.to.y === 4)!.count, 2);
-  });
-
-  test("the privacy threshold is five", () => {
-    assert.equal(MIN_RESPONSES_TO_SHOW, 5);
   });
 });

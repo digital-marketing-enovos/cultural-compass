@@ -196,16 +196,6 @@ export function readSpread(s: number): string {
 
 // ─── CROWD RENDERING ───────────────────────────────────────────
 
-/**
- * How many responses the results screen needs before it renders anything.
- *
- * Several items — how a failure is owned, how a long-running project is
- * stopped — only tell the truth if nothing can be traced back to a person, and
- * the manager is often in the room. Below this count, a single mark appearing
- * on a projected screen is attributable to whoever just put their phone down.
- */
-export const MIN_RESPONSES_TO_SHOW = 5;
-
 /** A position, and how many people share it exactly. */
 export type Cluster = { x: number; y: number; count: number };
 export type VectorCluster = { from: Point; to: Point; count: number };
