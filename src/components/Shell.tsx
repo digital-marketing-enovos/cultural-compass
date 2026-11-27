@@ -16,7 +16,7 @@ export function Shell({ subtitle, children }: { subtitle?: string; children: Rea
               margin: "0 0 10px",
             }}
           >
-            The Signal Workshop · EMC · Enovos NEXT
+            Cultural Compass · Enovos
           </p>
           <h1
             style={{

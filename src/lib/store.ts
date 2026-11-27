@@ -25,8 +25,8 @@ export type StoredResponse = {
 
 // ─── ID GENERATION ─────────────────────────────────────────────
 
-/** Human-typable, unambiguous: no O/0, no I/1. e.g. "EMC-4821". */
-export function makeCode(prefix = "EMC"): string {
+/** Human-typable, unambiguous: no O/0, no I/1. e.g. "TEAMS-4821". */
+export function makeCode(prefix = "TEAMS"): string {
   const digits = Array.from({ length: 4 }, () => randomInt(0, 10)).join("");
   return `${prefix}-${digits}`;
 }

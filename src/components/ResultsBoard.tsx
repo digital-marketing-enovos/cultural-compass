@@ -158,7 +158,7 @@ export function ResultsBoard({
               lineHeight: 1.05,
             }}
           >
-            The EMC on the compass
+            The team on the compass
           </h1>
           <span
             style={{
@@ -289,7 +289,7 @@ export function ResultsBoard({
               label="Spread on today"
               value={stats?.spreadToday != null ? stats.spreadToday.toFixed(2) : "—"}
               band={stats?.spreadToday != null ? readSpread(stats.spreadToday) : null}
-              note="Mean distance to the centre of gravity. High means the EMC is not describing the same company today."
+              note="Mean distance to the centre of gravity. High means the team is not describing the same way of working today."
             />
           )}
           <ReadOut
@@ -304,7 +304,7 @@ export function ResultsBoard({
                 label="Mean change magnitude"
                 value={stats?.meanMagnitude != null ? stats.meanMagnitude.toFixed(2) : "—"}
                 band={null}
-                note="Out of a possible 5.66. Below 0.30, the EMC is calling for an adjustment, not a transformation."
+                note="Out of a possible 5.66. Below 0.30, the team is asking for an adjustment, not a change of gear."
               />
               <ReadOut
                 label="Direction coherence"

@@ -25,7 +25,7 @@ const label = {
 } as const;
 
 export default function FacilitatorHome() {
-  const [title, setTitle] = useState("EMC — Cultural Compass");
+  const [title, setTitle] = useState("Cultural Compass — team");
   const [nextYearOnly, setNextYearOnly] = useState(false);
   const [session, setSession] = useState<Created | null>(null);
   const [busy, setBusy] = useState(false);
