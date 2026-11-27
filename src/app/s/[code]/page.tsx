@@ -20,8 +20,8 @@ export default async function ParticipantPage({ params }: { params: Promise<{ co
     <Shell
       subtitle={
         session.mode === "both"
-          ? "12 trade-offs · today and next year"
-          : "12 trade-offs · next year"
+          ? "12 trade-offs · today and tomorrow"
+          : "12 trade-offs · tomorrow"
       }
     >
       <Questionnaire

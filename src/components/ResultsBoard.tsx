@@ -22,17 +22,17 @@ type Row = { id: string; today: Point | null; target: Point };
 type Payload = { closed: boolean; count: number; responses: Row[] };
 
 type Who = "individual" | "aggregate";
-type What = "today" | "next" | "both";
+type What = "today" | "tomorrow" | "both";
 
 const CAPTIONS: Record<Who, Record<What, string>> = {
   individual: {
     today: "Do we even describe the same company today?",
-    next: "Is there a shared direction, or several?",
+    tomorrow: "Is there a shared direction, or several?",
     both: "Each arrow is one leader's agenda. A tight bundle means alignment.",
   },
   aggregate: {
     today: "The group's centre of gravity on the present.",
-    next: "The group's centre of gravity on the target culture.",
+    tomorrow: "The group's centre of gravity on the target culture.",
     both: "The collective shift — an average, not a consensus.",
   },
 };
@@ -46,7 +46,7 @@ export function ResultsBoard({
   code: string;
   secret: string;
   title: string;
-  /** `target`: next-year-only session — nothing to show for Today, nor any movement. */
+  /** `target`: tomorrow-only session — nothing to show for Today, nor any movement. */
   mode: Mode;
 }) {
   const both = mode === "both";
@@ -54,7 +54,7 @@ export function ResultsBoard({
   const { data, status, setData } = usePoll<Payload>(`${base}/results?k=${encodeURIComponent(secret)}`);
 
   const [who, setWho] = useState<Who>("individual");
-  const [what, setWhat] = useState<What>(both ? "today" : "next");
+  const [what, setWhat] = useState<What>(both ? "today" : "tomorrow");
   const [closing, setClosing] = useState(false);
 
   const all = data?.responses ?? [];
@@ -71,7 +71,7 @@ export function ResultsBoard({
     if (!stats) return { dots, vectors };
 
     const wantToday = what === "today" || what === "both";
-    const wantTarget = what === "next" || what === "both";
+    const wantTarget = what === "tomorrow" || what === "both";
 
     if (who === "individual") {
       const plural = (n: number) => `${n} ${n === 1 ? "response" : "responses"}`;
@@ -216,7 +216,7 @@ export function ResultsBoard({
               ["aggregate", "Aggregate"],
             ]}
           />
-          {/* A next-year-only session has a single thing to show, so no selector:
+          {/* A tomorrow-only session has a single thing to show, so no selector:
               a one-option control would be a button that does nothing. */}
           {both && (
             <Segmented<What>
@@ -227,7 +227,7 @@ export function ResultsBoard({
               className="seg"
               options={[
                 ["today", "Today"],
-                ["next", "Next year"],
+                ["tomorrow", "Tomorrow"],
                 ["both", "Both + movement"],
               ]}
             />
@@ -253,7 +253,7 @@ export function ResultsBoard({
               fill
               dots={view.dots}
               vectors={view.vectors}
-              legend={what === "both" ? "both" : what === "today" ? "today" : "next"}
+              legend={what === "both" ? "both" : what === "today" ? "today" : "tomorrow"}
             />
             {!stats && (
               <p
@@ -280,7 +280,7 @@ export function ResultsBoard({
         </div>
 
         {/* ── read-outs, visible in every combination ─────────── */}
-        {/* Three of the four need a today position. In a next-year-only session
+        {/* Three of the four need a today position. In a tomorrow-only session
             they have nothing to measure, so they are left out rather than
             shown as a dash that invites the question. */}
         <aside className="rb-side">
@@ -293,7 +293,7 @@ export function ResultsBoard({
             />
           )}
           <ReadOut
-            label="Spread on next year"
+            label="Spread on tomorrow"
             value={stats ? stats.spreadTarget.toFixed(2) : "—"}
             band={stats ? readSpread(stats.spreadTarget) : null}
             note="High means there is no shared cultural direction. That is the subject to handle before the Bridges."

@@ -97,23 +97,20 @@ count, with the count shown on hover. `clusterPoints` is a pure function and
 `scoring.test.ts` asserts that the counts always sum back to the number of
 responses. Past twenty trajectories the arrows fade so the marks stay readable.
 
-## Next-year-only sessions
+## Tomorrow-only sessions
 
-The **Next year only** switch at session creation asks participants for one
-position per item — what would help the team work best next year — instead of
+The **Tomorrow only** switch at session creation asks participants for one
+position per item — what would help the team work best tomorrow — instead of
 two. Twelve answers instead of 24.
 
 The session's `mode` (`both` or `target`) is fixed at creation and decides
-everything downstream, on the server: a next-year-only session refuses a today
+everything downstream, on the server: a tomorrow-only session refuses a today
 value outright rather than dropping it, and a regular session refuses a
-next-year-only payload. `today_x`/`today_y` are stored as null.
+tomorrow-only payload. `today_x`/`today_y` are stored as null.
 
-On the results screen a next-year-only session keeps Individual / Aggregate but
-has no *What is shown* selector — there is only Next year to show — and only the
-*Spread on next year* read-out, since the other three need a today position.
-
-The word "Tomorrow" appears nowhere in this application; the second pass is
-always "next year".
+On the results screen a tomorrow-only session keeps Individual / Aggregate but
+has no *What is shown* selector — there is only Tomorrow to show — and only the
+*Spread on tomorrow* read-out, since the other three need a today position.
 
 Databases created before this existed are upgraded by the app on first use
 (`src/lib/db.ts`): it reads the catalogue, and only if something is missing adds
@@ -126,12 +123,12 @@ Each item belongs to axis X (collectivism ↔ individualism) or Y (integration �
 fragmentation) and carries a `flip` flag meaning its **high pole is rendered on the
 left**. A raw answer is the tapped position: `-3, -1, 1, 3`, no midpoint. Flipped items
 are negated before aggregating; the mean of the six signed answers per axis maps to a
-coordinate with `3 + (mean / 3) * 2`, giving `[1, 5]`. Today and next year are scored
+coordinate with `3 + (mean / 3) * 2`, giving `[1, 5]`. Today and tomorrow are scored
 independently, server-side on submit — never on the phone.
 
 One item is worth 0.67 of the 4-point span on its axis, about 17 %. A "Somewhat"
 answer is worth a third of a "Strongly". Maximum vector length between today and
-next year: √32 = 5.657.
+tomorrow: √32 = 5.657.
 
 Three of the six items on each axis are flipped, so answering everything with the same
 button scores dead centre (3, 3). That is the anti-position-bias device working, and

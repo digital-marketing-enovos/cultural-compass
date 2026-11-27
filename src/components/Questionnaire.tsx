@@ -44,7 +44,7 @@ export function Questionnaire({
   closed: boolean;
   /** The twelve items, already in display order, wording resolved server-side. */
   items: Item[];
-  /** `target`: next year only — one row per card, twelve positions instead of 24. */
+  /** `target`: tomorrow only — one row per card, twelve positions instead of 24. */
   mode: Mode;
 }) {
   const both = mode === "both";
@@ -196,12 +196,12 @@ export function Questionnaire({
             <>
               Position yourself <strong style={{ color: C.text }}>twice</strong> on each one: where your
               team stands <strong style={{ color: C.text }}>today</strong>, and what would help the team
-              work best <strong style={{ color: C.text }}>next year</strong>.
+              work best <strong style={{ color: C.text }}>tomorrow</strong>.
             </>
           ) : (
             <>
               Position yourself on each one: what would help the team work best{" "}
-              <strong style={{ color: C.text }}>next year</strong>.
+              <strong style={{ color: C.text }}>tomorrow</strong>.
             </>
           )}
         </p>

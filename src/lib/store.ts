@@ -17,7 +17,7 @@ export type StoredResponse = {
   id: string;
   sessionId: string;
   answers: Answers;
-  /** Null in a next-year-only session. */
+  /** Null in a tomorrow-only session. */
   today: Point | null;
   target: Point;
   createdAt: string;

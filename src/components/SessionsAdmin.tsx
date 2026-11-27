@@ -131,7 +131,7 @@ export function SessionsAdmin({ adminKey, initial }: { adminKey: string; initial
                         padding: "2px 9px",
                       }}
                     >
-                      next year only
+                      tomorrow only
                     </span>
                   )}
                   {row.closedAt && (

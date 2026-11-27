@@ -29,7 +29,7 @@ export type Vector = {
  */
 const grow = (base: number, count = 1) => base * Math.min(Math.sqrt(count), 2.4);
 
-export type Legend = "both" | "today" | "next" | "none";
+export type Legend = "both" | "today" | "tomorrow" | "none";
 
 /**
  * Ported verbatim from the reference prototype. `size` is the viewBox geometry
@@ -311,7 +311,7 @@ export function Compass({
 
       {legend !== "none" && (
         <g transform={`translate(${pad}, ${size - 8})`}>
-          {legend !== "next" && (
+          {legend !== "tomorrow" && (
             <>
               <circle cx="4" cy="-3" r="4.4" fill="none" stroke={C.today} strokeWidth="1.7" />
               <text x="13" y="0" fill={C.t3} fontSize="8.5" fontFamily={FB}>
@@ -321,9 +321,9 @@ export function Compass({
           )}
           {legend !== "today" && (
             <>
-              <circle cx={legend === "next" ? 4 : 62} cy="-3" r="4.5" fill={C.target} />
-              <text x={legend === "next" ? 13 : 71} y="0" fill={C.t3} fontSize="8.5" fontFamily={FB}>
-                Next year
+              <circle cx={legend === "tomorrow" ? 4 : 62} cy="-3" r="4.5" fill={C.target} />
+              <text x={legend === "tomorrow" ? 13 : 71} y="0" fill={C.t3} fontSize="8.5" fontFamily={FB}>
+                Tomorrow
               </text>
             </>
           )}

@@ -5,7 +5,7 @@ export type Point = { x: number; y: number };
 export type PartialAnswers = Record<number, Raw | undefined>;
 /**
  * What a session asks for. `both` is the full exercise — where Enovos stands
- * today and what would help it work best next year. `target` asks for next year only.
+ * today and what would help it work best tomorrow. `target` asks for tomorrow only.
  */
 export type Mode = "both" | "target";
 export const MODES: Mode[] = ["both", "target"];
@@ -88,9 +88,9 @@ export type ParseResult =
   | { ok: false; error: string };
 
 /**
- * In `both` mode all 24 values are required. In `target` mode the 12 next-year
+ * In `both` mode all 24 values are required. In `target` mode the 12 tomorrow
  * values are required and a today value is refused rather than ignored, so a
- * next-year-only session can never end up holding half-answered today data.
+ * tomorrow-only session can never end up holding half-answered today data.
  */
 export function parseAnswers(input: unknown, mode: Mode = "both"): ParseResult {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
@@ -128,18 +128,18 @@ export type GroupRow = { today: Point | null; target: Point };
 
 /**
  * Everything that needs a today position — its centroid and spread, and the
- * change vectors — is null in a next-year-only session rather than a
+ * change vectors — is null in a tomorrow-only session rather than a
  * meaningless zero.
  */
 export type GroupStats = {
   n: number;
   /** Centroid of the today marks. */
   centroidToday: Point | null;
-  /** Centroid of the next-year marks. */
+  /** Centroid of the tomorrow marks. */
   centroidTarget: Point;
   /** Mean euclidean distance from the today centroid. */
   spreadToday: number | null;
-  /** Mean euclidean distance from the next-year centroid. */
+  /** Mean euclidean distance from the tomorrow centroid. */
   spreadTarget: number;
   /** Mean length of the individual change vectors. */
   meanMagnitude: number | null;

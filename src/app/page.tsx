@@ -26,7 +26,7 @@ const label = {
 
 export default function FacilitatorHome() {
   const [title, setTitle] = useState("Cultural Compass — team");
-  const [nextYearOnly, setNextYearOnly] = useState(false);
+  const [tomorrowOnly, setTomorrowOnly] = useState(false);
   const [session, setSession] = useState<Created | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +38,7 @@ export default function FacilitatorHome() {
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title, mode: nextYearOnly ? "target" : "both" }),
+        body: JSON.stringify({ title, mode: tomorrowOnly ? "target" : "both" }),
       });
       const body = (await res.json().catch(() => ({}))) as Partial<Created> & { error?: string };
       if (!res.ok || !body.code || !body.secret) {
@@ -49,7 +49,7 @@ export default function FacilitatorHome() {
         code: body.code,
         secret: body.secret,
         title: body.title ?? title,
-        mode: body.mode ?? (nextYearOnly ? "target" : "both"),
+        mode: body.mode ?? (tomorrowOnly ? "target" : "both"),
       });
     } catch {
       setError("Could not create the session.");
@@ -82,10 +82,10 @@ export default function FacilitatorHome() {
           }}
         />
         <Toggle
-          on={nextYearOnly}
-          onChange={setNextYearOnly}
-          label="Next year only"
-          hint="Participants only say what would help the team work best next year — 12 answers instead of 24. The results screen then shows Next year, with no Today view and no movement."
+          on={tomorrowOnly}
+          onChange={setTomorrowOnly}
+          label="Tomorrow only"
+          hint="Participants only say what would help the team work best tomorrow — 12 answers instead of 24. The results screen then shows Tomorrow, with no Today view and no movement."
         />
         {error && (
           <p role="alert" style={{ fontSize: "13px", color: C.fire, margin: "12px 0 0" }}>
@@ -156,7 +156,7 @@ function CreatedPanel({ session }: { session: Created }) {
               padding: "3px 11px",
             }}
           >
-            {session.mode === "target" ? "Next year only" : "Today and next year"}
+            {session.mode === "target" ? "Tomorrow only" : "Today and tomorrow"}
           </span>
         </div>
       </div>
